@@ -1,4 +1,3 @@
-from dotenv import load_dotenv
 import os 
 from sagemaker.workflow.pipeline_context import PipelineSession
 from sagemaker.session import Session
@@ -7,24 +6,15 @@ from sagemaker.workflow.steps import CacheConfig
 from sagemaker.sklearn.processing import SKLearnProcessor
 from sagemaker.processing import ProcessingInput, ProcessingOutput
 from sagemaker.workflow.steps import ProcessingStep
-
+from constants import *
 
 if __name__ == "__main__":
 
-    CLEANED_DATA_PATH = "./data/penguins_cleaned.csv"
-    load_dotenv()
-    role = os.environ["ROLE"]
-    bucket = os.environ["BUCKET"]
-    s3_project_uri = f"s3://{bucket}"
     pipeline_session = PipelineSession()
     pure_session = Session()
     sagemaker_client = boto3.client("sagemaker")
     iam_client = boto3.client("iam")
     s3_client = boto3.client("s3")
-    instance_type = "ml.m5.xlarge"
-    tf_version = "2.11"
-    skl_version = "1.2-1"
-    py_version = "py39"
     cache_config = CacheConfig(enable_caching=True, expire_after="5d")
 
     # transfer data to s3
@@ -40,7 +30,6 @@ if __name__ == "__main__":
         sagemaker_session=pipeline_session,
         tags={"Key": "tagkey", "Value":"tagvalue"}
     )
-    base_directory = "/opt/ml/preprocessing"
     processing_step = ProcessingStep(
         name="preprocess-data",
         cache_config=cache_config,
@@ -50,28 +39,28 @@ if __name__ == "__main__":
                 ProcessingInput(
                     input_name="input",
                     source=os.path.join(s3_project_uri, "data"),
-                    destination=os.path.join(base_directory, "data")
+                    destination=input_data_directory
                 )
             ],
             outputs=[
                 ProcessingOutput(
                     output_name="data-splits",
-                    source=os.path.join(base_directory, "data-splits"),
+                    source=data_splits_directory,
                     destination=os.path.join(s3_project_uri, "preprocessing/data-splits")
                 ),
                 ProcessingOutput(
                     output_name="model",
-                    source=os.path.join(base_directory, "model"),
+                    source=model_directory,
                     destination=os.path.join(s3_project_uri, "preprocessing/model")
                 ),
                 ProcessingOutput(
                     output_name="transformers",
-                    source=os.path.join(base_directory, "transformers"),
-                    destination=os.path.join(s3_project_uri, "preprocessing/transformer")
+                    source=transformers_directory,
+                    destination=os.path.join(s3_project_uri, "preprocessing/transformers")
                 ),
                 ProcessingOutput(
                     output_name="baseline",
-                    source=os.path.join(base_directory, "baseline"),
+                    source=baseline_directory,
                     destination=os.path.join(s3_project_uri, "preprocessing/baseline")
                 ),
             ],
