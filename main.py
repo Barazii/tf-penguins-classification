@@ -35,6 +35,13 @@ if __name__ == "__main__":
         cache_config=cache_config,
         step_args=processor.run(
             code="./code/preprocessing.py",
+            arguments=[
+                "--input_data_directory", f"{input_data_directory}",
+                "--data_splits_directory", f"{data_splits_directory}",
+                "--model_directory", f"{model_directory}",
+                "--transformers_directory", f"{transformers_directory}",
+                "--baseline_directory", f"{baseline_directory}",
+            ],
             inputs=[
                 ProcessingInput(
                     input_name="input",

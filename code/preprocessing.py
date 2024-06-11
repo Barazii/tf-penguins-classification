@@ -1,13 +1,13 @@
 import argparse
 import pandas as pd
-from ..constants import *
+import os
 from sklearn.model_selection import train_test_split
 from pathlib import Path
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
-def preprocess():
+def preprocess(args):
     df = _read_csv_data()
     train_df, test_df = train_test_split(df, train_size=0.8, test_size=0.2, random_state=1)
     _save_baseline(train_df, test_df)
@@ -30,12 +30,12 @@ def preprocess():
     _save_splits(X_train, X_test, y_train, y_test)
 
 def _read_csv_data():
-    csv_file = os.listdir(input_data_directory).pop()
+    csv_file = os.listdir(args.input_data_directory).pop()
     df = pd.read_csv(csv_file)
     return df.sample(axis=0, frac=1)
 
 def _save_baseline(train_df, test_df):
-    path = Path(baseline_directory)
+    path = Path(args.baseline_directory)
     path.mkdir(exist_ok=True, parents=True)
     train_df.to_csv(path_or_buf=path/f"train-baseline.csv", index=False, header=False)
     test_df.to_csv(path_or_buf=path/f"test-baseline.csv", index=False, header=False)
@@ -44,4 +44,11 @@ def _save_splits(X_train, X_test, y_train, y_test):
     pass
 
 if __name__ == "__main__":
-    preprocess()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_data_directory", type=str, required=True)
+    parser.add_argument("--data_splits_directory", type=str, required=True)
+    parser.add_argument("--model_directory", type=str, required=True)
+    parser.add_argument("--transformers_directory", type=str, required=True)
+    parser.add_argument("--baseline_directory", type=str, required=True)
+    args = parser.parse_args()
+    preprocess(args)
