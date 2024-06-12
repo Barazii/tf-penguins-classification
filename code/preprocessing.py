@@ -30,8 +30,8 @@ def preprocess(args):
     _save_splits(X_train, X_test, y_train, y_test)
 
 def _read_csv_data():
-    csv_file = os.listdir(args.input_data_directory).pop()
-    df = pd.read_csv(csv_file)
+    csv_file_path = Path(args.input_data_directory).glob("*.csv")
+    df = [pd.read_csv(csv_file) for csv_file in csv_file_path].pop()
     return df.sample(axis=0, frac=1)
 
 def _save_baseline(train_df, test_df):
