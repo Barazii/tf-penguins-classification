@@ -1,5 +1,7 @@
 import os 
 from sagemaker.workflow.pipeline_context import PipelineSession
+from sagemaker.workflow.pipeline_definition_config import PipelineDefinitionConfig
+from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.session import Session
 import boto3
 from sagemaker.workflow.steps import CacheConfig
@@ -75,3 +77,16 @@ if __name__ == "__main__":
     )
 
     # set up training step 
+
+    # build the pipeline 
+    pl_def_config = PipelineDefinitionConfig(use_custom_job_prefix=True)
+    pipeline = Pipeline(
+        name="penguins-classification",
+        steps=[processing_step],
+        sagemaker_session=pipeline_session,
+        pipeline_definition_config=pl_def_config,
+    )
+    pipeline.upsert(role_arn=role)
+
+    # start the pipeline
+    pipeline.start()
