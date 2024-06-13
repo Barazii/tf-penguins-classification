@@ -36,41 +36,37 @@ if __name__ == "__main__":
         name="preprocess-data",
         cache_config=cache_config,
         step_args=processor.run(
-            code="./code/preprocessing.py",
+            code="./code/processing.py",
             arguments=[
-                "--input_data_directory", f"{input_data_directory}",
-                "--data_splits_directory", f"{data_splits_directory}",
-                "--model_directory", f"{model_directory}",
-                "--transformers_directory", f"{transformers_directory}",
-                "--baseline_directory", f"{baseline_directory}",
+                "--pc_base_directory", f"{pc_base_directory}",
             ],
             inputs=[
                 ProcessingInput(
-                    input_name="input",
+                    input_name="data",
                     source=os.path.join(s3_project_uri, "data"),
-                    destination=input_data_directory
+                    destination=os.path.join(pc_base_directory, "data")
                 )
             ],
             outputs=[
                 ProcessingOutput(
                     output_name="data-splits",
-                    source=data_splits_directory,
-                    destination=os.path.join(s3_project_uri, "preprocessing/data-splits")
+                    source=os.path.join(pc_base_directory, "data-splits"),
+                    destination=os.path.join(s3_project_uri, "processing-step/data-splits")
                 ),
                 ProcessingOutput(
                     output_name="model",
-                    source=model_directory,
-                    destination=os.path.join(s3_project_uri, "preprocessing/model")
+                    source=os.path.join(pc_base_directory, "model"),
+                    destination=os.path.join(s3_project_uri, "training-step/model")
                 ),
                 ProcessingOutput(
                     output_name="transformers",
-                    source=transformers_directory,
-                    destination=os.path.join(s3_project_uri, "preprocessing/transformers")
+                    source=os.path.join(pc_base_directory, "transformers"),
+                    destination=os.path.join(s3_project_uri, "processing-step/transformers")
                 ),
                 ProcessingOutput(
                     output_name="baseline",
-                    source=baseline_directory,
-                    destination=os.path.join(s3_project_uri, "preprocessing/baseline")
+                    source=os.path.join(pc_base_directory, "baseline"),
+                    destination=os.path.join(s3_project_uri, "processing-step/baseline")
                 ),
             ],
         )
@@ -89,4 +85,4 @@ if __name__ == "__main__":
     pipeline.upsert(role_arn=role)
 
     # start the pipeline
-    pipeline.start()
+    # pipeline.start()
