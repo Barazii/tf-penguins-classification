@@ -9,8 +9,6 @@ import shutil
 import tarfile
 import pytest
 import tempfile
-import joblib
-from processing import process
 import pandas as pd
 from constants import *
 from pathlib import Path
@@ -51,12 +49,10 @@ def test_preprocess_generates_baselines(directory):
     assert "train-baseline.csv" in os.listdir(directory / "baseline")
 
 
-# def test_preprocess_creates_two_models(directory):
-#     model_path = directory / "model"
-#     tar = tarfile.open(model_path / "model.tar.gz", "r:gz")
-
-#     assert "features.joblib" in tar.getnames()
-#     assert "target.joblib" in tar.getnames()
+def test_preprocess_creates_two_models(directory):
+    model_path = directory / "transformers"
+    tar = tarfile.open(model_path / 'transformers.tar.gz', "r:gz")
+    assert "transformers.joblib" in tar.getnames()
 
 
 def test_splits_are_transformed(directory):
