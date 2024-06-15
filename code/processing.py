@@ -5,6 +5,9 @@ from sklearn.model_selection import train_test_split
 from pathlib import Path
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+import tempfile
+import joblib
+import tarfile
 
 
 def process(pc_base_directory):
@@ -28,7 +31,7 @@ def process(pc_base_directory):
     X_test = transformers.transform(test_df)
 
     _save_splits(pc_base_directory, X_train, X_test, y_train, y_test)
-    _save_transformers()
+    _save_transformers(pc_base_directory, transformers)
 
 def _read_csv_data(pc_base_directory):
     csv_file_path = Path(os.path.join(pc_base_directory, "data")).glob("*.csv")
@@ -53,8 +56,16 @@ def _save_splits(pc_base_directory, X_train, X_test, y_train, y_test):
     pd.DataFrame(X_test).to_csv(test_path/"X_test.csv", index=False, header=False)
     pd.DataFrame(y_test).to_csv(test_path/"y_test.csv", index=False, header=False)
 
-def _save_transformers():
-    pass
+def _save_transformers(pc_base_directory, transformers):
+
+    transformers_path = Path(pc_base_directory) / "transformers"
+    transformers_path.mkdir(parents=True, exist_ok=True)
+    
+    with tempfile.TemporaryDirectory() as directory:
+        joblib.dump(transformers, os.path.join(directory, "transformers.joblib"))
+
+        with tarfile.open(f"{str(transformers_path / 'transformers.tar.gz')}", "w:gz") as tar_file:
+            tar_file.add(os.path.join(directory, "transformers.joblib"), arcname="transformers.joblib")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
