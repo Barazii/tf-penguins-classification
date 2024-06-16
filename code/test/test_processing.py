@@ -12,6 +12,7 @@ import tempfile
 import pandas as pd
 from constants import *
 from pathlib import Path
+import subprocess
 
 
 @pytest.fixture(scope="function", autouse=False)
@@ -20,15 +21,13 @@ def directory():
     data_directory = Path(directory) / "data" 
     data_directory.mkdir(parents=True, exist_ok=True)
     shutil.copy2(CLEANED_DATA_PATH, data_directory / "data.csv")
-    
     directory = Path(directory)
 
     test_args = ['--pc_base_directory', f"{directory}",]
-
-    import subprocess
-    subprocess.run(['python3', 
+    com_proc = subprocess.run(['python3', 
                     '/home/mahmood/ml-penguins-classification/code/processing.py'] + 
                     test_args)
+    com_proc.check_returncode()
 
     yield directory
     
