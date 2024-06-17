@@ -45,16 +45,16 @@ def _save_baseline(pc_base_directory, train_df, test_df):
     test_df.to_csv(path_or_buf=path/f"test-baseline.csv", index=False, header=False)
 
 def _save_splits(pc_base_directory, X_train, X_test, y_train, y_test):
-    train_path = Path(pc_base_directory) / "train"
-    test_path = Path(pc_base_directory) / "test"
+    train_path = Path(pc_base_directory) / "data-splits" / "train"
+    test_path = Path(pc_base_directory) / "data-splits" / "test"
 
     train_path.mkdir(exist_ok=True, parents=True)
     test_path.mkdir(exist_ok=True, parents=True)
 
-    pd.DataFrame(X_train).to_csv(train_path/"X_train.csv", index=False, header=False)
-    pd.DataFrame(y_train).to_csv(train_path/"y_train.csv", index=False, header=False)
-    pd.DataFrame(X_test).to_csv(test_path/"X_test.csv", index=False, header=False)
-    pd.DataFrame(y_test).to_csv(test_path/"y_test.csv", index=False, header=False)
+    pd.DataFrame(X_train).to_csv(path_or_buf=train_path/f"X_train.csv", index=False, header=False)
+    pd.DataFrame(y_train).to_csv(path_or_buf=train_path/f"y_train.csv", index=False, header=False)
+    pd.DataFrame(X_test).to_csv(path_or_buf=test_path/f"X_test.csv", index=False, header=False)
+    pd.DataFrame(y_test).to_csv(path_or_buf=test_path/f"y_test.csv", index=False, header=False)
 
 def _save_transformers(pc_base_directory, transformers):
 
