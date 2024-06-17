@@ -21,13 +21,14 @@ def directory():
     data_directory = Path(directory) / "data" 
     data_directory.mkdir(parents=True, exist_ok=True)
     shutil.copy2(CLEANED_DATA_PATH, data_directory / "data.csv")
+    
     directory = Path(directory)
 
     test_args = ['--pc_base_directory', f"{directory}",]
-    com_proc = subprocess.run(['python3', 
+
+    subprocess.run(['python3', 
                     '/home/mahmood/ml-penguins-classification/code/processing.py'] + 
-                    test_args)
-    com_proc.check_returncode()
+                    test_args).check_returncode()
 
     yield directory
     
