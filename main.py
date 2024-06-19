@@ -7,8 +7,11 @@ import boto3
 from sagemaker.workflow.steps import CacheConfig
 from sagemaker.sklearn.processing import SKLearnProcessor
 from sagemaker.processing import ProcessingInput, ProcessingOutput
-from sagemaker.workflow.steps import ProcessingStep
+from sagemaker.inputs import TrainingInput
+from sagemaker.workflow.steps import ProcessingStep, TrainingStep
 from constants import *
+from sagemaker.tensorflow import TensorFlow
+
 
 if __name__ == "__main__":
 
@@ -72,7 +75,41 @@ if __name__ == "__main__":
         )
     )
 
-    # set up training step 
+    # set up training step
+    tf_estimator = TensorFlow(
+        base_job_name="train-model",
+        entry_point=f"./code/training.py",
+        hyperparameters={
+            "epochs": 50,
+            "batch_size": 32,
+        },
+        metric_definitions=[
+            {"Name": "loss", "Regex": "loss: ([0-9\\.]+)"},
+            {"Name": "accuracy", "Regex": "accuracy: ([0-9\\.]+)"},
+        ],
+        framework_version=tf_version,
+        py_version=py_version,
+        instance_type=instance_type,
+        instance_count=1,
+        disable_profiler=True,
+        sagemaker_session=pipeline_session,
+        role=role,
+        enable_sagemaker_metrics=True
+    )
+    training_step = TrainingStep(
+        name="train-model",
+        step_args=tf_estimator.fit(
+            inputs={
+                "train": TrainingInput(
+                    s3_data=processing_step.properties.ProcessingOutputConfig.Outputs[
+                        "data-splits"
+                    ].S3Output.S3Uri,
+                    content_type="text/csv",
+                ),
+            },
+        ),
+        cache_config=cache_config,
+    )
 
     # build the pipeline 
     pl_def_config = PipelineDefinitionConfig(use_custom_job_prefix=True)
