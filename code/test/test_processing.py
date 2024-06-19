@@ -38,8 +38,13 @@ def directory():
 def test_preprocess_generates_data_splits(directory):
     output_directories = os.listdir(directory)
     
-    assert "train" in output_directories
-    assert "test" in output_directories
+    assert "data-splits" in output_directories
+    assert "train" in os.listdir(directory / "data-splits")
+    assert "test" in os.listdir(directory / "data-splits")
+    assert "X_train.csv" in os.listdir(directory / "data-splits" / "train")
+    assert "y_train.csv" in os.listdir(directory / "data-splits" / "train")
+    assert "X_test.csv" in os.listdir(directory / "data-splits" / "test")
+    assert "y_test.csv" in os.listdir(directory / "data-splits" / "test")
 
 
 def test_preprocess_generates_baselines(directory):
@@ -56,10 +61,10 @@ def test_preprocess_creates_two_models(directory):
 
 
 def test_splits_are_transformed(directory):
-    X_train = pd.read_csv(directory / "train" / "X_train.csv", header=None)
-    y_train = pd.read_csv(directory / "train" / "y_train.csv", header=None)
-    X_test = pd.read_csv(directory / "test" / "X_test.csv", header=None)
-    y_test = pd.read_csv(directory / "test" / "y_test.csv", header=None)
+    X_train = pd.read_csv(directory / "data-splits" / "train" / "X_train.csv", header=None)
+    y_train = pd.read_csv(directory / "data-splits" / "train" / "y_train.csv", header=None)
+    X_test = pd.read_csv(directory / "data-splits" / "test" / "X_test.csv", header=None)
+    y_test = pd.read_csv(directory / "data-splits" / "test" / "y_test.csv", header=None)
 
     # After transforming the data, the number of columns should be 7 for X data:
     # * 3 - island (one-hot encoded)
