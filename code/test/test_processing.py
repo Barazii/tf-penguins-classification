@@ -12,7 +12,7 @@ import tempfile
 import pandas as pd
 from constants import *
 from pathlib import Path
-import subprocess
+from processing import process
 
 
 @pytest.fixture(scope="function", autouse=False)
@@ -24,11 +24,7 @@ def directory():
     
     directory = Path(directory)
 
-    test_args = ['--pc_base_directory', f"{directory}",]
-
-    subprocess.run(['python3', 
-                    '/home/mahmood/ml-penguins-classification/code/processing.py'] + 
-                    test_args).check_returncode()
+    process(directory)
 
     yield directory
     
