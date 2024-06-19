@@ -9,7 +9,8 @@ import tempfile
 from pathlib import Path
 import shutil
 from constants import *
-import subprocess
+from processing import process
+from training import train
 
 
 @pytest.fixture(scope="function", autouse=False)
@@ -20,18 +21,14 @@ def directory():
     shutil.copy2(CLEANED_DATA_PATH, data_dir / "data.csv")
 
     base_temp_dir = Path(base_temp_dir)
-    processing_args = ['--pc_base_directory', f"{base_temp_dir}",]
-    training_args = ['--epochs', "50",
-                     '--batch_size', "32",
-                     '--channel_train', f"{base_temp_dir}",
-                     '--model_dir', os.path.join(f"{base_temp_dir}", "model"),]
 
-    subprocess.run(['python3', 
-                    '/home/mahmood/ml-penguins-classification/code/processing.py'] + 
-                    processing_args).check_returncode()
-    subprocess.run(['python3', 
-                    '/home/mahmood/ml-penguins-classification/code/training.py'] + 
-                    training_args).check_returncode()
+    process(base_temp_dir)
+    train(
+        train_data_dir=base_temp_dir / "data-splits",
+        model_dir=base_temp_dir / "model",
+        hp_batch_size=32,
+        hp_epochs=50,
+    )
 
     yield base_temp_dir
 
