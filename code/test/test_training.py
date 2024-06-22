@@ -26,8 +26,7 @@ def directory():
     train(
         train_data_dir=base_temp_dir / "data-splits",
         model_dir=base_temp_dir / "model",
-        hp_batch_size=32,
-        hp_epochs=50,
+        hp_epochs=1,
     )
 
     yield base_temp_dir
@@ -35,4 +34,4 @@ def directory():
     shutil.rmtree(base_temp_dir)
 
 def test_train_job_save_a_folder_with_model_artifacts(directory):
-    pass
+    assert "001" in os.listdir(directory / "model")
