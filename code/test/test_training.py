@@ -14,7 +14,7 @@ from training import train
 
 
 @pytest.fixture(scope="function", autouse=False)
-def directory():
+def directory(monkeypatch):
     base_temp_dir = tempfile.mktemp()
     data_dir = Path(base_temp_dir) / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -23,9 +23,11 @@ def directory():
     base_temp_dir = Path(base_temp_dir)
 
     process(base_temp_dir)
+    
+    # temporarily set the env variable SM_MODEL_DIR
+    monkeypatch.setenv("SM_MODEL_DIR", f"{base_temp_dir}/model")
     train(
         train_data_dir=base_temp_dir / "data-splits",
-        model_dir=base_temp_dir / "model",
         hp_epochs=1,
     )
 
@@ -34,4 +36,5 @@ def directory():
     shutil.rmtree(base_temp_dir)
 
 def test_train_job_save_a_folder_with_model_artifacts(directory):
-    assert "001" in os.listdir(directory / "model")
+    assert "assets" in os.listdir(directory / "model")
+    assert "saved_model.pb" in os.listdir(directory / "model")
