@@ -15,12 +15,12 @@ from sagemaker.tensorflow import TensorFlow
 
 if __name__ == "__main__":
 
-    pipeline_session = PipelineSession()
+    pipeline_session = PipelineSession(default_bucket=bucket)
     pure_session = Session()
     sagemaker_client = boto3.client("sagemaker")
     iam_client = boto3.client("iam")
     s3_client = boto3.client("s3")
-    cache_config = CacheConfig(enable_caching=True, expire_after="5d")
+    cache_config = CacheConfig(enable_caching=False, expire_after="5d")
 
     # transfer data to s3
     s3_client.upload_file(Filename=CLEANED_DATA_PATH, Bucket=bucket, Key="data/data.csv")
@@ -33,7 +33,7 @@ if __name__ == "__main__":
         instance_count=1,
         role=role,
         sagemaker_session=pipeline_session,
-        tags={"Key": "tagkey", "Value":"tagvalue"}
+        tags={"Key": "tagkey", "Value":"tagvalue"},
     )
     processing_step = ProcessingStep(
         name="preprocess-data",
@@ -57,11 +57,6 @@ if __name__ == "__main__":
                     destination=os.path.join(s3_project_uri, "processing-step/data-splits")
                 ),
                 ProcessingOutput(
-                    output_name="model",
-                    source=os.path.join(pc_base_directory, "model"),
-                    destination=os.path.join(s3_project_uri, "training-step/model")
-                ),
-                ProcessingOutput(
                     output_name="transformers",
                     source=os.path.join(pc_base_directory, "transformers"),
                     destination=os.path.join(s3_project_uri, "processing-step/transformers")
@@ -80,8 +75,8 @@ if __name__ == "__main__":
         base_job_name="train-model",
         entry_point=f"./code/training.py",
         hyperparameters={
-            "epochs": 50,
-            "batch_size": 32,
+            "epochs": "20",
+            "batch_size": "32",
         },
         metric_definitions=[
             {"Name": "loss", "Regex": "loss: ([0-9\\.]+)"},
@@ -94,10 +89,10 @@ if __name__ == "__main__":
         disable_profiler=True,
         sagemaker_session=pipeline_session,
         role=role,
-        enable_sagemaker_metrics=True
+        enable_sagemaker_metrics=True,
     )
     training_step = TrainingStep(
-        name="train-model",
+        name="training-step",
         step_args=tf_estimator.fit(
             inputs={
                 "train": TrainingInput(
@@ -111,15 +106,21 @@ if __name__ == "__main__":
         cache_config=cache_config,
     )
 
+    # registration step
+
+
     # build the pipeline 
     pl_def_config = PipelineDefinitionConfig(use_custom_job_prefix=True)
     pipeline = Pipeline(
-        name="penguins-classification",
-        steps=[processing_step],
+        name="penguins-classification-pipeline",
+        steps=[
+            processing_step,
+            training_step,
+        ],
         sagemaker_session=pipeline_session,
         pipeline_definition_config=pl_def_config,
     )
     pipeline.upsert(role_arn=role)
 
     # start the pipeline
-    # pipeline.start()
+    pipeline.start()
