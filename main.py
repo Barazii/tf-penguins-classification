@@ -11,6 +11,8 @@ from sagemaker.inputs import TrainingInput
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep
 from constants import *
 from sagemaker.tensorflow import TensorFlow
+from sagemaker.tensorflow import TensorFlowProcessor
+from sagemaker.workflow.properties import PropertyFile
 
 
 if __name__ == "__main__":
@@ -106,7 +108,52 @@ if __name__ == "__main__":
         cache_config=cache_config,
     )
 
-    # registration step
+    # Evaluation step
+    eval_processor = TensorFlowProcessor(
+        base_job_name="evaluation-processor",
+        framework_version=tf_version,
+        py_version=py_version,
+        instance_type=instance_type,
+        instance_count=1,
+        role=role,
+        sagemaker_session=pipeline_session,
+    )
+    eval_report = PropertyFile(
+        name="evaluation-report",
+        output_name="evaluation",
+        path="evaluation.json",
+    )
+    model_assets = training_step.properties.ModelArtifacts.S3ModelArtifacts
+    eval_step = ProcessingStep(
+        name="evaluation-step",
+        step_args=eval_processor.run(
+            code=f"./code/evaluation.py",
+            arguments=[
+                "--pc_base_directory", f"{pc_base_directory}",
+            ],
+            inputs=[
+                ProcessingInput(
+                    input_name="evaluation-data",
+                    source=processing_step.properties.ProcessingOutputConfig.Outputs["data-splits"].S3Output.S3Uri,
+                    destination=f"{pc_base_directory}/evaluation-data",
+                ),
+                ProcessingInput(
+                    input_name="trained-model",
+                    source=model_assets,
+                    destination=f"{pc_base_directory}/model"
+                ),
+            ],
+            outputs=[
+                ProcessingOutput(
+                    output_name="evaluation-report",
+                    source=f"{pc_base_directory}/evaluation-report",
+                    destination=os.path.join(s3_project_uri, "evaluation-step"),
+                ),
+            ]
+        ),
+        property_files=[eval_report],
+        cache_config=cache_config,
+    )
 
 
     # build the pipeline 
@@ -116,6 +163,8 @@ if __name__ == "__main__":
         steps=[
             processing_step,
             training_step,
+            eval_step,
+            
         ],
         sagemaker_session=pipeline_session,
         pipeline_definition_config=pl_def_config,
@@ -123,4 +172,4 @@ if __name__ == "__main__":
     pipeline.upsert(role_arn=role)
 
     # start the pipeline
-    pipeline.start()
+    # pipeline.start()
