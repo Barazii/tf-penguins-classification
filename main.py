@@ -120,7 +120,7 @@ if __name__ == "__main__":
     )
     eval_report = PropertyFile(
         name="evaluation-report",
-        output_name="evaluation",
+        output_name="evaluation-report",
         path="evaluation.json",
     )
     model_assets = training_step.properties.ModelArtifacts.S3ModelArtifacts
