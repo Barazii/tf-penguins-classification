@@ -138,9 +138,9 @@ if __name__ == "__main__":
                     destination=f"{pc_base_directory}/evaluation-data",
                 ),
                 ProcessingInput(
-                    input_name="trained-model",
+                    input_name="evaluation-model",
                     source=model_assets,
-                    destination=f"{pc_base_directory}/trained-model"
+                    destination=f"{pc_base_directory}/evaluation-model"
                 ),
             ],
             outputs=[
