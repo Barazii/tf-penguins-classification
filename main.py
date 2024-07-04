@@ -121,7 +121,7 @@ if __name__ == "__main__":
     eval_report = PropertyFile(
         name="evaluation-report",
         output_name="evaluation-report",
-        path="evaluation.json",
+        path="evaluation_report.json",
     )
     model_assets = training_step.properties.ModelArtifacts.S3ModelArtifacts
     eval_step = ProcessingStep(
@@ -140,7 +140,7 @@ if __name__ == "__main__":
                 ProcessingInput(
                     input_name="trained-model",
                     source=model_assets,
-                    destination=f"{pc_base_directory}/model"
+                    destination=f"{pc_base_directory}/trained-model"
                 ),
             ],
             outputs=[
