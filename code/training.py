@@ -47,7 +47,7 @@ def train(train_data_dir, hp_epochs=20, hp_batch_size=32):
 
     # save the trained model into the container (and sm will transfer it to s3)
     model_dir = os.environ["SM_MODEL_DIR"]
-    model.save(Path(model_dir))
+    model.save(Path(model_dir) / "assets")
 
 
 if __name__ == "__main__":

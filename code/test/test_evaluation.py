@@ -46,7 +46,7 @@ def directory(monkeypatch):
     eval_model_dir.mkdir(parents=True, exist_ok=True)
 
     with tarfile.open(ec_base_directory / "evaluation-model" / "model.tar.gz", "w:gz") as tar_file:
-        tar_file.add(pc_base_directory / "model", arcname="model")
+        tar_file.add(pc_base_directory / "model" / "assets", arcname="assets")
 
     eval_report_dir = ec_base_directory / "evaluation-report"
     eval_report_dir.mkdir(parents=True, exist_ok=True)
@@ -65,8 +65,8 @@ def test_evaluation_script_generates_output_folders_and_files(directory):
 
     assert "evaluation-model" in os.listdir(directory)
     assert "model.tar.gz" in os.listdir(directory / "evaluation-model")
-    assert "model" in os.listdir(directory / "evaluation-model")
-    assert "saved_model.pb" in os.listdir(directory / "evaluation-model" / "model")
+    assert "assets" in os.listdir(directory / "evaluation-model")
+    assert "saved_model.pb" in os.listdir(directory / "evaluation-model" / "assets")
 
     assert "evaluation-data" in os.listdir(directory)
     assert "test" in os.listdir(directory / "evaluation-data")
