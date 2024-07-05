@@ -11,8 +11,8 @@ from sklearn.metrics import accuracy_score
 
 def train(train_data_dir, hp_epochs=20, hp_batch_size=32):
     # read the processed/transformed data
-    X_train = pd.read_csv(Path(train_data_dir) / "train" / "X_train.csv")
-    y_train = pd.read_csv(Path(train_data_dir) / "train" / "y_train.csv")
+    X_train = pd.read_csv(train_data_dir / "train" / "X_train.csv")
+    y_train = pd.read_csv(train_data_dir / "train" / "y_train.csv")
 
     # retrieve or build the training model
     model = Sequential([
@@ -61,5 +61,5 @@ if __name__ == "__main__":
     train(
         hp_epochs=args.epochs,
         hp_batch_size=args.batch_size,
-        train_data_dir=args.channel_train,
+        train_data_dir=Path(args.channel_train),
     )

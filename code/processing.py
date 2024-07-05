@@ -34,19 +34,19 @@ def process(pc_base_directory):
     _save_transformers(pc_base_directory, transformers)
 
 def _read_csv_data(pc_base_directory):
-    csv_file_path = Path(os.path.join(pc_base_directory, "data")).glob("*.csv")
+    csv_file_path = (pc_base_directory / "data").glob("*.csv")
     df = [pd.read_csv(csv_file) for csv_file in csv_file_path].pop()
     return df.sample(axis=0, frac=1)
 
 def _save_baseline(pc_base_directory, train_df, test_df):
-    path = Path(pc_base_directory) / "baseline"
+    path = pc_base_directory / "baseline"
     path.mkdir(exist_ok=True, parents=True)
     train_df.to_csv(path_or_buf=path/f"train-baseline.csv", index=False, header=False)
     test_df.to_csv(path_or_buf=path/f"test-baseline.csv", index=False, header=False)
 
 def _save_splits(pc_base_directory, X_train, X_test, y_train, y_test):
-    train_path = Path(pc_base_directory) / "data-splits" / "train"
-    test_path = Path(pc_base_directory) / "data-splits" / "test"
+    train_path = pc_base_directory / "data-splits" / "train"
+    test_path = pc_base_directory / "data-splits" / "test"
 
     train_path.mkdir(exist_ok=True, parents=True)
     test_path.mkdir(exist_ok=True, parents=True)
@@ -58,7 +58,7 @@ def _save_splits(pc_base_directory, X_train, X_test, y_train, y_test):
 
 def _save_transformers(pc_base_directory, transformers):
 
-    transformers_path = Path(pc_base_directory) / "transformers"
+    transformers_path = pc_base_directory / "transformers"
     transformers_path.mkdir(parents=True, exist_ok=True)
     
     with tempfile.TemporaryDirectory() as directory:
@@ -71,4 +71,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pc_base_directory", type=str, required=True)
     args = parser.parse_args()
-    process(args.pc_base_directory)
+    process(Path(args.pc_base_directory))
