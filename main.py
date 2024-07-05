@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     # set up the processing step 
     processor = SKLearnProcessor(
-        base_job_name="preprocess-data",
+        base_job_name="data-processing-processor",
         framework_version=skl_version,
         instance_type=instance_type,
         instance_count=1,
@@ -38,7 +38,7 @@ if __name__ == "__main__":
         tags={"Key": "tagkey", "Value":"tagvalue"},
     )
     processing_step = ProcessingStep(
-        name="preprocess-data",
+        name="processing-step",
         cache_config=cache_config,
         step_args=processor.run(
             code="./code/processing.py",
