@@ -11,4 +11,5 @@ instance_type = "ml.m5.xlarge"
 tf_version = "2.11"
 skl_version = "1.2-1"
 py_version = "py39"
-pc_base_directory = "/opt/ml/processing"    # processing container base directory 
+pc_base_directory = "/opt/ml/processing"    # processing container base directory
+MODEL_GROUP_NAME = "penguins-classifier"

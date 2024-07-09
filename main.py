@@ -13,6 +13,17 @@ from constants import *
 from sagemaker.tensorflow import TensorFlow
 from sagemaker.tensorflow import TensorFlowProcessor
 from sagemaker.workflow.properties import PropertyFile
+from sagemaker.tensorflow import TensorFlowModel
+from sagemaker.model_metrics import ModelMetrics, MetricsSource
+from sagemaker.workflow.functions import Join
+from sagemaker.workflow.model_step import ModelStep
+from sagemaker.sklearn.model import SKLearnModel
+from sagemaker.pipeline import PipelineModel
+from sagemaker.workflow.condition_step import ConditionStep
+from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
+from sagemaker.workflow.functions import JsonGet
+from sagemaker.workflow.parameters import ParameterFloat
+from sagemaker.workflow.fail_step import FailStep
 
 
 if __name__ == "__main__":
@@ -155,16 +166,121 @@ if __name__ == "__main__":
         cache_config=cache_config,
     )
 
+    # build the inference pipeline (preprocessing model, trained model, postprocessing model)
+    # 1. the pre processing model
+    transformers_uri = Join(
+        on="/",
+        values=[
+            processing_step.properties.ProcessingOutputConfig.Outputs["transformers"].S3Output.S3Uri,
+            "transformers.tar.gz"
+        ]
+    )
+    preprocessing_model = SKLearnModel(
+        name="preprocessing-model",
+        model_data=transformers_uri,
+        entry_point=f"./code/preprocessing_component.py",
+        framework_version=skl_version,
+        sagemaker_session=pipeline_session,
+        role=role,
+    )
 
-    # build the pipeline 
+    # 2. the model we trained
+    tf_model = TensorFlowModel(
+        name="trained-model",
+        model_data=model_assets,
+        framework_version=tf_version,
+        sagemaker_session=pipeline_session,
+        role=role,
+    )
+
+    # 3. the post processing model
+    postprocessing_model = SKLearnModel(
+        name="postprocessing-model",
+        model_data=transformers_uri,
+        entry_point=f"./code/postprocessing_component.py",
+        framework_version=skl_version,
+        sagemaker_session=pipeline_session,
+        role=role,
+    )
+
+    # build the inference pipeline
+    inference_model = PipelineModel(
+        name="inference-model",
+        models=[preprocessing_model, tf_model, postprocessing_model],
+        sagemaker_session=pipeline_session,
+        role=role,
+    )
+
+    # set up the registration step
+    eval_report_uri = Join(
+        on="/",
+        values=[
+            eval_step.properties.ProcessingOutputConfig.Outputs["evaluation-report"].S3Output.S3Uri,
+            "evaluation_report.json",
+        ]
+    )
+    model_metrics = ModelMetrics(
+        model_statistics=MetricsSource(
+            s3_uri=eval_report_uri,
+            content_type="application/json",
+        )
+    )
+    registration_step = ModelStep(
+        name="registration-step",
+        display_name="registration-step",
+        step_args=inference_model.register(
+            model_package_group_name=MODEL_GROUP_NAME,
+            model_metrics=model_metrics,
+            approval_status="PendingManualApproval",
+            content_types=["text/csv", "application/json"],
+            response_types=["text/csv", "application/json"],
+            inference_instances=[instance_type],
+            transform_instances=[instance_type],
+            domain="MACHINE_LEARNING",
+            task="CLASSIFICATION",
+            framework="TENSORFLOW",
+            framework_version=tf_version,
+            description="commit message here",
+        ),
+    )
+
+    # set up the condition step
+    accuracy_threshold = ParameterFloat(name="accuracy_threshold", default_value=0.65)
+    condition = ConditionGreaterThanOrEqualTo(
+        left=JsonGet(
+            step_name=eval_step.name,
+            property_file=eval_report,
+            json_path="metrics.accuracy",
+        ),
+        right=accuracy_threshold
+    )
+    fail_step = FailStep(
+        name="fail-step",
+        error_message=Join(
+            on=" ",
+            values=[
+                "Model's accuracy is less than",
+                accuracy_threshold
+            ]
+        )
+    )
+    condition_step = ConditionStep(
+        name="condition-step",
+        conditions=[condition],
+        if_steps=[registration_step],
+        else_steps=[fail_step]
+    )
+
+    # build the final pipeline 
     pl_def_config = PipelineDefinitionConfig(use_custom_job_prefix=True)
     pipeline = Pipeline(
         name="penguins-classification-pipeline",
+        parameters=[accuracy_threshold],
         steps=[
             processing_step,
             training_step,
             eval_step,
-            
+            condition_step
         ],
         sagemaker_session=pipeline_session,
         pipeline_definition_config=pl_def_config,
@@ -172,4 +288,4 @@ if __name__ == "__main__":
     pipeline.upsert(role_arn=role)
 
     # start the pipeline
-    # pipeline.start()
+    pipeline.start()
