@@ -1,8 +1,15 @@
+import sys
+import os
+
+sys.path.extend([os.path.abspath('.')])
+
 import joblib
 import os
 import pandas as pd
 from io import StringIO
 import json
+from constants import FEATURE_COLUMNS
+import tarfile
 
 try:
     from sagemaker_containers.beta.framework import encoders, worker
@@ -10,18 +17,11 @@ except ImportError or ModuleNotFoundError:
     worker = None
 
 
-TARGET_COLUMN = "species"
-FEATURE_COLUMNS = [
-    "island",
-    "culmen_length_mm",
-    "culmen_depth_mm",
-    "flipper_length_mm",
-    "body_mass_g",
-    "sex",
-]
-
 def model_fn(transformer_dir):
-    return joblib.load(os.path.join(transformer_dir, "transformers.joblib"))
+    with tarfile.open(transformer_dir / "transformers.tar.gz") as trans_tar_file:
+        trans_tar_file.extractall(path=transformer_dir / "unzipped_transformers_dir")
+
+    return joblib.load(transformer_dir / "unzipped_transformers_dir" / "transformers.joblib")
 
 def input_fn(input_content, input_content_type):
 
