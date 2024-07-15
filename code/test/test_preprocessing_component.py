@@ -57,3 +57,32 @@ def test_input_fn_with_json_content_type():
     assert len(df.columns) == 6
     for col in df.columns.values:
         assert col in FEATURE_COLUMNS
+
+def test_input_fn_raise_error():
+    input_content = "test"
+    input_content_type = "wrong-content-type"
+    with pytest.raises(ValueError):
+        input_fn(input_content, input_content_type)
+
+def test_predict_fn_try_route(directory):
+    input_content = """
+        Torgersen,39.2,19.6,195,4675,MALE
+    """
+    input_content_type = "text/csv"
+    df = input_fn(input_content, input_content_type)
+
+    transformers = model_fn(directory / "transformers")
+    _ = predict_fn(df, transformers)
+
+def test_predict_fn_except_route(directory):
+    input_content = """
+        Torgersen,39.2,19.6,195,4675,MALE
+    """
+    input_content_type = "text/csv"
+    df = input_fn(input_content, input_content_type)
+
+    # drop a column arbitrarily so the ColumnTransformer raiser an error about a missing column
+    df = df.drop(columns="island")
+    transformers = model_fn(directory / "transformers")
+    with pytest.raises(ValueError):
+        predict_fn(df, transformers)
