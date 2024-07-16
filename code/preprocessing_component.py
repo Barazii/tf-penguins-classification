@@ -42,13 +42,12 @@ def predict_fn(input_data, transformer):
     try:
         transformed_input = transformer.transform(input_data)
         return transformed_input
-    except ValueError as e:
-        print("Error transforming the input data", e)
-        return None
+    except:
+        raise Exception("Error transforming the input data.")
     
 def output_fn(transformed_input, accept):
     if transformed_input is None:
-        raise Exception("There was an error transforming the input data")
+        raise ValueError("There was an error transforming the input data")
     
     output = {"transformed input": transformed_input.tolist()}
 
