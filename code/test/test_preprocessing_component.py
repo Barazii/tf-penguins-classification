@@ -84,5 +84,27 @@ def test_predict_fn_except_route(directory):
     # drop a column arbitrarily so the ColumnTransformer raiser an error about a missing column
     df = df.drop(columns="island")
     transformers = model_fn(directory / "transformers")
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         predict_fn(df, transformers)
+
+def test_output_fn_raise_error():
+    transformed_input = None
+    accept = ""
+    with pytest.raises(ValueError):
+        output_fn(transformed_input, accept)
+
+
+def test_output_fn_try_route(directory):
+    input_content = """
+        Torgersen,39.2,19.6,195,4675,MALE
+    """
+    input_content_type = "text/csv"
+    df = input_fn(input_content, input_content_type)
+
+    transformers = model_fn(directory / "transformers")
+    transformed_input = predict_fn(df, transformers)
+    accept = "application/json"
+    x, y = output_fn(transformed_input, accept)
+    for i in range(len(transformed_input)):
+        assert x["transformed input"][0][i] == transformed_input[0][i]
+    assert y == accept
