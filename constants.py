@@ -21,3 +21,4 @@ FEATURE_COLUMNS = [
     "body_mass_g",
     "sex",
 ]
+TARGET_CATEGORIES = ['Biscoe', 'Dream', 'Torgersen']
