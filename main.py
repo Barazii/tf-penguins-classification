@@ -259,7 +259,7 @@ if __name__ == "__main__":
         error_message=Join(
             on=" ",
             values=[
-                "Model's accuracy is less than",
+                "Model's accuracy is less than accuracy threshold",
                 accuracy_threshold
             ]
         )

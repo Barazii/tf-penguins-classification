@@ -37,4 +37,4 @@ def directory(monkeypatch):
 
 def test_train_job_save_a_folder_with_model_artifacts(directory):
     assert "assets" in os.listdir(directory / "model")
-    assert "saved_model.pb" in os.listdir(directory / "model")
+    assert "saved_model.pb" in os.listdir(directory / "model" / "assets")

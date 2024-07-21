@@ -7,7 +7,7 @@ except ImportError:
     worker = None
 
 
-def model_fn(input=None, type=None):
+def model_fn(arg=None):
     target_categories = TARGET_CATEGORIES
     return target_categories
 
