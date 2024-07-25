@@ -1,10 +1,11 @@
 import json
 import numpy as np
-from constants import TARGET_CATEGORIES
 try:
     from sagemaker_containers.beta.framework import encoders, worker
 except ImportError:
     worker = None
+
+TARGET_CATEGORIES = ['Biscoe', 'Dream', 'Torgersen']
 
 
 def model_fn(arg=None):

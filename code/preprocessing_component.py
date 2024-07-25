@@ -1,27 +1,28 @@
-import sys
-import os
-
-sys.path.extend([os.path.abspath('.')])
-
 import joblib
-import os
 import pandas as pd
 from io import StringIO
 import json
-from constants import FEATURE_COLUMNS
-import tarfile
+from pathlib import Path
 
 try:
     from sagemaker_containers.beta.framework import encoders, worker
 except ImportError or ModuleNotFoundError:
     worker = None
 
+FEATURE_COLUMNS = [
+    "island",
+    "culmen_length_mm",
+    "culmen_depth_mm",
+    "flipper_length_mm",
+    "body_mass_g",
+    "sex",
+]
+
 
 def model_fn(transformer_dir):
-    with tarfile.open(transformer_dir / "transformers.tar.gz") as trans_tar_file:
-        trans_tar_file.extractall(path=transformer_dir / "unzipped_transformers_dir")
+    transformer_dir = Path(transformer_dir) 
 
-    return joblib.load(transformer_dir / "unzipped_transformers_dir" / "transformers.joblib")
+    return joblib.load(transformer_dir / "transformers.joblib")
 
 def input_fn(input_content, input_content_type):
 
@@ -49,7 +50,7 @@ def output_fn(transformed_input, accept):
     if transformed_input is None:
         raise ValueError("There was an error transforming the input data")
     
-    output = {"transformed input": transformed_input.tolist()}
+    output = {"instances": transformed_input.tolist()}
 
     try:
         return(

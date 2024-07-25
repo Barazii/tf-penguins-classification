@@ -24,16 +24,17 @@ from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
 from sagemaker.workflow.functions import JsonGet
 from sagemaker.workflow.parameters import ParameterFloat
 from sagemaker.workflow.fail_step import FailStep
+from helpers import create_lambda_role_arn
+from sagemaker.lambda_helper import Lambda
+from sagemaker.workflow.lambda_step import LambdaStep
 
 
 if __name__ == "__main__":
 
     pipeline_session = PipelineSession(default_bucket=bucket)
-    pure_session = Session()
-    sagemaker_client = boto3.client("sagemaker")
-    iam_client = boto3.client("iam")
+    session = Session()
     s3_client = boto3.client("s3")
-    cache_config = CacheConfig(enable_caching=False, expire_after="5d")
+    cache_config = CacheConfig(enable_caching=True, expire_after="5d")
 
     # transfer data to s3
     s3_client.upload_file(Filename=CLEANED_DATA_PATH, Bucket=bucket, Key="data/data.csv")
@@ -243,6 +244,35 @@ if __name__ == "__main__":
             description="commit message here",
         ),
     )
+    
+    # set up the lambda function
+    lambda_role_arn = create_lambda_role_arn()
+
+    deploy_lambda_fn = Lambda(
+        function_name="deploy_fn",
+        execution_role_arn=lambda_role_arn,
+        script="code/lambda.py",
+        handler="lambda.lambda_handler",
+        timeout=600,
+        session=session,
+        runtime="python3.11",
+        environment={
+            "Variables": {
+                "ENDPOINT": ENDPOINT,
+                "DATA_CAPTURE_DESTINATION": DATA_CAPTURE_DESTINATION,
+                "ROLE": role,
+            }
+        },
+    )
+    lambda_response = deploy_lambda_fn.upsert()
+
+    deploy_step = LambdaStep(
+        name="deploy",
+        lambda_func=deploy_lambda_fn,
+        inputs={
+            "model_package_arn": registration_step.properties.ModelPackageArn,
+        },
+    )
 
     # set up the condition step
     accuracy_threshold = ParameterFloat(name="accuracy_threshold", default_value=0.65)
@@ -267,7 +297,7 @@ if __name__ == "__main__":
     condition_step = ConditionStep(
         name="condition-step",
         conditions=[condition],
-        if_steps=[registration_step],
+        if_steps=[registration_step, deploy_step],
         else_steps=[fail_step]
     )
 

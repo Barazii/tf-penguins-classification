@@ -17,7 +17,7 @@ def evaluate(pc_base_directory):
     with tarfile.open(model_dir / "model.tar.gz") as tar_file:
         tar_file.extractall(path=model_dir)
 
-    model = keras.models.load_model(model_dir / "assets")
+    model = keras.models.load_model(model_dir / "001")
 
     predictions = np.argmax(model.predict(np.array(X_test)), axis=-1)
     true_labels = np.argmax(np.array(y_test), axis=-1)
