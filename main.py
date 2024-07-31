@@ -274,6 +274,45 @@ if __name__ == "__main__":
         },
     )
 
+    # set up the event bridge for lambda step 
+    event_pattern = f"""
+    {{
+    "source": ["aws.sagemaker"],
+    "detail-type": ["SageMaker Model Package State Change"],
+    "detail": {{
+        "ModelPackageGroupName": ["{MODEL_GROUP_NAME}"],
+        "ModelApprovalStatus": ["Approved"]
+    }}
+    }}
+    """
+    events_client = boto3.client("events")
+    rule_response = events_client.put_rule(
+        Name="PipelineModelApprovedRule",
+        EventPattern=event_pattern,
+        State="ENABLED",
+        RoleArn=role,
+    )
+    events_client.put_targets(
+        Rule="PipelineModelApprovedRule",
+        Targets=[
+            {
+                "Id": "1",
+                "Arn": lambda_response["FunctionArn"],
+            }
+        ],
+    )
+    lambda_client = boto3.client("lambda")
+    try:
+        response = lambda_client.add_permission(
+            Action="lambda:InvokeFunction",
+            FunctionName=lambda_response["FunctionName"],
+            Principal="events.amazonaws.com",
+            SourceArn=rule_response["RuleArn"],
+            StatementId="EventBridge",
+        )
+    except lambda_client.exceptions.ResourceConflictException as e:
+        print(f'Function "{lambda_response["FunctionName"]}" already has permissions.')
+
     # set up the condition step
     accuracy_threshold = ParameterFloat(name="accuracy_threshold", default_value=0.65)
     condition = ConditionGreaterThanOrEqualTo(
