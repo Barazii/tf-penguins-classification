@@ -266,14 +266,6 @@ if __name__ == "__main__":
     )
     lambda_response = deploy_lambda_fn.upsert()
 
-    deploy_step = LambdaStep(
-        name="deploy",
-        lambda_func=deploy_lambda_fn,
-        inputs={
-            "model_package_arn": registration_step.properties.ModelPackageArn,
-        },
-    )
-
     # set up the event bridge for lambda step 
     event_pattern = f"""
     {{
@@ -336,7 +328,7 @@ if __name__ == "__main__":
     condition_step = ConditionStep(
         name="condition-step",
         conditions=[condition],
-        if_steps=[registration_step, deploy_step],
+        if_steps=[registration_step],
         else_steps=[fail_step]
     )
 
