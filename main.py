@@ -26,7 +26,12 @@ from sagemaker.workflow.parameters import ParameterFloat
 from sagemaker.workflow.fail_step import FailStep
 from helpers import create_lambda_role_arn
 from sagemaker.lambda_helper import Lambda
-from sagemaker.workflow.lambda_step import LambdaStep
+from sagemaker.workflow.quality_check_step import QualityCheckStep, DataQualityCheckConfig, ModelQualityCheckConfig
+from sagemaker.workflow.check_job_config import CheckJobConfig
+from sagemaker.model_monitor.dataset_format import DatasetFormat
+from sagemaker.transformer import Transformer
+from sagemaker.workflow.steps import TransformStep
+from sagemaker.drift_check_baselines import DriftCheckBaselines
 
 
 if __name__ == "__main__":
@@ -212,26 +217,150 @@ if __name__ == "__main__":
         role=role,
     )
 
-    # set up the registration step
-    eval_report_uri = Join(
-        on="/",
-        values=[
-            eval_step.properties.ProcessingOutputConfig.Outputs["evaluation-report"].S3Output.S3Uri,
-            "evaluation_report.json",
-        ]
+    # set up quality monitoring for model and data
+    data_quality_baseline_step = QualityCheckStep(
+        name="generate-data-quality-baseline",
+        check_job_config=CheckJobConfig(
+            instance_type="ml.c5.xlarge",
+            instance_count=1,
+            volume_size_in_gb=20,
+            sagemaker_session=pipeline_session,
+            role=role,
+        ),
+        quality_check_config=DataQualityCheckConfig(
+            baseline_dataset=Join(
+                on="/",
+                values=[
+                    processing_step.properties.ProcessingOutputConfig.Outputs["baseline"].S3Output.S3Uri,
+                    "train-baseline.csv"
+                ]
+            ),
+            dataset_format=DatasetFormat.csv(header=False, output_columns_position="START"),
+            output_s3_uri=DATA_QUALITY_LOCATION,
+        ),
+        model_package_group_name=MODEL_GROUP_NAME,
+        skip_check=True,
+        register_new_baseline=True,
+        cache_config=cache_config,
+    )
+    create_model_step = ModelStep(
+        name="create-model",
+        step_args=inference_model.create(instance_type=instance_type),
+    )
+    transformer = Transformer(
+        model_name=create_model_step.properties.ModelName,
+        instance_type=instance_type,
+        instance_count=1,
+        strategy="MultiRecord",
+        accept="text/csv",
+        assemble_with="Line",
+        output_path=f"{s3_project_uri}/transform",
+        sagemaker_session=pipeline_session,
+    )
+    generate_test_predictions_step = TransformStep(
+        name="generate-test-predictions",
+        step_args=transformer.transform(
+            data=Join(
+                on="/",
+                values=[
+                    processing_step.properties.ProcessingOutputConfig.Outputs["baseline"].S3Output.S3Uri,
+                    "test-baseline.csv"
+                ]
+            ),
+            join_source="Input",
+            split_type="Line",
+            content_type="text/csv",
+            # The first field corresponds to the groundtruth,
+            # and the second to last field corresponds to the transform output.
+            #
+            # Here is an example of the data generated
+            # after joining the input with the transform output:
+            #
+            # Gentoo,39.1,18.7,181.0,3750.0,MALE,Gentoo,0.52
+            #
+            # Notice how the first field is the groundtruth coming from the
+            # test set. The second to last field is the prediction coming the
+            # model.
+            # output_filter="$[0,-2]",
+        ),
+        cache_config=cache_config,
+    )
+    model_quality_baseline_step = QualityCheckStep(
+        name="generate-model-quality-baseline",
+        check_job_config=CheckJobConfig(
+            instance_type="ml.c5.xlarge",
+            instance_count=1,
+            volume_size_in_gb=20,
+            sagemaker_session=pipeline_session,
+            role=role,
+        ),
+        quality_check_config=ModelQualityCheckConfig(
+            # We are going to use the output of the Transform Step to generate
+            # the model quality baseline.
+            baseline_dataset=generate_test_predictions_step.properties.TransformOutput.S3OutputPath,
+            dataset_format=DatasetFormat.csv(header=False),
+
+            # We need to specify the problem type and the fields where the prediction
+            # and groundtruth are so the process knows how to interpret the results.
+            problem_type="MulticlassClassification",
+            
+            # Since the data doesn't have headers, SageMaker will autocreate headers for it.
+            # _c0 corresponds to the first column, and _c1 corresponds to the second column.
+            ground_truth_attribute="_c0",
+            inference_attribute="_c1",
+            output_s3_uri=MODEL_QUALITY_LOCATION,
+        ),
+        model_package_group_name=MODEL_GROUP_NAME,
+        skip_check=True,
+        register_new_baseline=True,
+        cache_config=cache_config,
     )
     model_metrics = ModelMetrics(
-        model_statistics=MetricsSource(
-            s3_uri=eval_report_uri,
+        model_data_statistics=MetricsSource(
+            s3_uri=data_quality_baseline_step.properties.CalculatedBaselineStatistics,
             content_type="application/json",
-        )
+        ),
+        model_data_constraints=MetricsSource(
+            s3_uri=data_quality_baseline_step.properties.CalculatedBaselineConstraints,
+            content_type="application/json",
+        ),
+        model_statistics=MetricsSource(
+            s3_uri=model_quality_baseline_step.properties.CalculatedBaselineStatistics,
+            content_type="application/json",
+        ),
+        model_constraints=MetricsSource(
+            s3_uri=model_quality_baseline_step.properties.CalculatedBaselineConstraints,
+            content_type="application/json",
+        ),
     )
+
+    drift_check_baselines = DriftCheckBaselines(
+        model_data_statistics=MetricsSource(
+            s3_uri=data_quality_baseline_step.properties.BaselineUsedForDriftCheckStatistics,
+            content_type="application/json",
+        ),
+        model_data_constraints=MetricsSource(
+            s3_uri=data_quality_baseline_step.properties.BaselineUsedForDriftCheckConstraints,
+            content_type="application/json",
+        ),
+        model_statistics=MetricsSource(
+            s3_uri=model_quality_baseline_step.properties.BaselineUsedForDriftCheckStatistics,
+            content_type="application/json",
+        ),
+        model_constraints=MetricsSource(
+            s3_uri=model_quality_baseline_step.properties.BaselineUsedForDriftCheckConstraints,
+            content_type="application/json",
+        ),
+    )
+
+    # set up the registration step
     registration_step = ModelStep(
         name="registration-step",
         display_name="registration-step",
         step_args=inference_model.register(
             model_package_group_name=MODEL_GROUP_NAME,
             model_metrics=model_metrics,
+            drift_check_baselines=drift_check_baselines,
             approval_status="PendingManualApproval",
             content_types=["text/csv", "application/json"],
             response_types=["text/csv", "application/json"],
@@ -328,7 +457,12 @@ if __name__ == "__main__":
     condition_step = ConditionStep(
         name="condition-step",
         conditions=[condition],
-        if_steps=[registration_step],
+        if_steps=[
+            create_model_step, 
+            generate_test_predictions_step,
+            model_quality_baseline_step,
+            registration_step
+        ],
         else_steps=[fail_step]
     )
 
@@ -341,6 +475,7 @@ if __name__ == "__main__":
             processing_step,
             training_step,
             eval_step,
+            data_quality_baseline_step,
             condition_step
         ],
         sagemaker_session=pipeline_session,

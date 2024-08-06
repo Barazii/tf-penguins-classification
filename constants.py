@@ -15,3 +15,6 @@ pc_base_directory = "/opt/ml/processing"    # processing container base director
 MODEL_GROUP_NAME = "penguins-classifier"
 ENDPOINT = "penguins-endpoint"
 DATA_CAPTURE_DESTINATION = f"{s3_project_uri}/monitoring/data-capture"
+GROUND_TRUTH_LOCATION = f"{s3_project_uri}/monitoring/groundtruth"
+DATA_QUALITY_LOCATION = f"{s3_project_uri}/monitoring/data-quality"
+MODEL_QUALITY_LOCATION = f"{s3_project_uri}/monitoring/model-quality"
