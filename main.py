@@ -24,7 +24,7 @@ from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
 from sagemaker.workflow.functions import JsonGet
 from sagemaker.workflow.parameters import ParameterFloat
 from sagemaker.workflow.fail_step import FailStep
-from helpers import create_lambda_role_arn
+from helpers import *
 from sagemaker.lambda_helper import Lambda
 from sagemaker.workflow.quality_check_step import QualityCheckStep, DataQualityCheckConfig, ModelQualityCheckConfig
 from sagemaker.workflow.check_job_config import CheckJobConfig
@@ -32,6 +32,8 @@ from sagemaker.model_monitor.dataset_format import DatasetFormat
 from sagemaker.transformer import Transformer
 from sagemaker.workflow.steps import TransformStep
 from sagemaker.drift_check_baselines import DriftCheckBaselines
+from sagemaker.model_monitor import CronExpressionGenerator, DefaultModelMonitor
+from sagemaker.model_monitor import ModelQualityMonitor, EndpointInput
 
 
 if __name__ == "__main__":
@@ -39,7 +41,7 @@ if __name__ == "__main__":
     pipeline_session = PipelineSession(default_bucket=bucket)
     session = Session()
     s3_client = boto3.client("s3")
-    cache_config = CacheConfig(enable_caching=True, expire_after="5d")
+    cache_config = CacheConfig(enable_caching=False, expire_after="5d")
 
     # transfer data to s3
     s3_client.upload_file(Filename=CLEANED_DATA_PATH, Bucket=bucket, Key="data/data.csv")
@@ -484,4 +486,99 @@ if __name__ == "__main__":
     pipeline.upsert(role_arn=role)
 
     # start the pipeline
-    pipeline.start()
+    ret = pipeline.start()
+
+    # monitoring jobs
+    print("waiting for pipeline execution...")
+    ret.wait(delay=180)
+    print("execution finished")
+    # s3_client.upload_file(Filename="./code/data_quality_preprocessing.py", Bucket=bucket, Key=MONITORING_SCRIPT_LOCATION)
+
+    # sagemaker_client = boto3.client("sagemaker")
+
+    # # data quality monitoring job
+    # try:
+    #     data_monitor = DefaultModelMonitor(
+    #         instance_type=instance_type,
+    #         instance_count=1,
+    #         max_runtime_in_seconds=3600,
+    #         role=role,
+    #     )
+    #     data_monitor.create_monitoring_schedule(
+    #         monitor_schedule_name="data-monitoring-schedule",
+    #         endpoint_input=ENDPOINT,
+    #         record_preprocessor_script=data_quality_preprocessing_uri,
+    #         statistics=f"{DATA_QUALITY_LOCATION}/statistics.json",
+    #         constraints=f"{DATA_QUALITY_LOCATION}/constraints.json",
+    #         schedule_cron_expression=CronExpressionGenerator.hourly(),
+    #         output_s3_uri=DATA_QUALITY_LOCATION,
+    #         enable_cloudwatch_metrics=True,
+    #     )
+    # except sagemaker_client.exceptions.ResourceInUse as _:
+    #     boto3.client("sagemaker").delete_monitoring_schedule(MonitoringScheduleName='data-monitoring-schedule')
+    #     import time
+    #     time.sleep(10)
+    #     data_monitor = DefaultModelMonitor(
+    #         instance_type=instance_type,
+    #         instance_count=1,
+    #         max_runtime_in_seconds=3600,
+    #         role=role,
+    #     )
+    #     data_monitor.create_monitoring_schedule(
+    #         monitor_schedule_name="data-monitoring-schedule",
+    #         endpoint_input=ENDPOINT,
+    #         record_preprocessor_script=data_quality_preprocessing_uri,
+    #         statistics=f"{DATA_QUALITY_LOCATION}/statistics.json",
+    #         constraints=f"{DATA_QUALITY_LOCATION}/constraints.json",
+    #         schedule_cron_expression=CronExpressionGenerator.hourly(),
+    #         output_s3_uri=DATA_QUALITY_LOCATION,
+    #         enable_cloudwatch_metrics=True,
+    #     )
+    
+    # # model quality monitoring job
+    # try:
+    #     model_monitor = ModelQualityMonitor(
+    #         instance_type=instance_type,
+    #         instance_count=1,
+    #         max_runtime_in_seconds=1800,
+    #         role=role
+    #     )
+    #     model_monitor.create_monitoring_schedule(
+    #         monitor_schedule_name="model-monitoring-schedule",
+    #         endpoint_input = EndpointInput(
+    #             endpoint_name=ENDPOINT,
+    #             inference_attribute="prediction",
+    #             destination="/opt/ml/processing/input_data",
+    #         ),
+    #         problem_type="MulticlassClassification",
+    #         ground_truth_input=GROUND_TRUTH_LOCATION,
+    #         constraints=f"{MODEL_QUALITY_LOCATION}/constraints.json",
+    #         schedule_cron_expression=CronExpressionGenerator.hourly(),
+    #         output_s3_uri=MODEL_QUALITY_LOCATION,
+    #         enable_cloudwatch_metrics=True,
+    #     )
+    # except sagemaker_client.exceptions.ResourceInUse as _:
+    #     boto3.client("sagemaker").delete_monitoring_schedule(MonitoringScheduleName='model-monitoring-schedule')
+    #     import time
+    #     time.sleep(10)
+    #     model_monitor = ModelQualityMonitor(
+    #         instance_type=instance_type,
+    #         instance_count=1,
+    #         max_runtime_in_seconds=1800,
+    #         role=role
+    #     )
+    #     model_monitor.create_monitoring_schedule(
+    #         monitor_schedule_name="model-monitoring-schedule",
+    #         endpoint_input = EndpointInput(
+    #             endpoint_name=ENDPOINT,
+    #             inference_attribute="prediction",
+    #             destination="/opt/ml/processing/input_data",
+    #         ),
+    #         problem_type="MulticlassClassification",
+    #         ground_truth_input=GROUND_TRUTH_LOCATION,
+    #         constraints=f"{MODEL_QUALITY_LOCATION}/constraints.json",
+    #         schedule_cron_expression=CronExpressionGenerator.hourly(),
+    #         output_s3_uri=MODEL_QUALITY_LOCATION,
+    #         enable_cloudwatch_metrics=True,
+    #     )
+    # # describe_data_monitoring_schedule(ENDPOINT)
