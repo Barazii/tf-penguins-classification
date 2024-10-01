@@ -31,16 +31,13 @@ def directory():
     shutil.rmtree(directory)
 
 
-def test_preprocess_generates_data_splits(directory):
+def test_preprocess_generates_transformed_data(directory):
     output_directories = os.listdir(directory)
     
-    assert "data-splits" in output_directories
-    assert "train" in os.listdir(directory / "data-splits")
-    assert "test" in os.listdir(directory / "data-splits")
-    assert "X_train.csv" in os.listdir(directory / "data-splits" / "train")
-    assert "y_train.csv" in os.listdir(directory / "data-splits" / "train")
-    assert "X_test.csv" in os.listdir(directory / "data-splits" / "test")
-    assert "y_test.csv" in os.listdir(directory / "data-splits" / "test")
+    assert "transformed-data" in output_directories
+    assert "t_train_data.csv" in os.listdir(directory / "transformed-data")
+    assert "t_test_data.csv" in os.listdir(directory / "transformed-data")
+    assert "t_validation_data.csv" in os.listdir(directory / "transformed-data")
 
 
 def test_preprocess_generates_baselines(directory):
@@ -50,52 +47,51 @@ def test_preprocess_generates_baselines(directory):
     assert "train-baseline.csv" in os.listdir(directory / "baseline")
 
 
-def test_preprocess_creates_two_models(directory):
-    model_path = directory / "transformers"
-    tar = tarfile.open(model_path / 'transformers.tar.gz', "r:gz")
+def test_preprocess_creates_data_transformers(directory):
+    path = directory / "transformers"
+    tar = tarfile.open(path / 'transformers.tar.gz', "r:gz")
     assert "transformers.joblib" in tar.getnames()
 
 
 def test_splits_are_transformed(directory):
-    X_train = pd.read_csv(directory / "data-splits" / "train" / "X_train.csv", header=None)
-    y_train = pd.read_csv(directory / "data-splits" / "train" / "y_train.csv", header=None)
-    X_test = pd.read_csv(directory / "data-splits" / "test" / "X_test.csv", header=None)
-    y_test = pd.read_csv(directory / "data-splits" / "test" / "y_test.csv", header=None)
+    train_data = pd.read_csv(directory / "transformed-data" / "t_train_data.csv", header=None)
+    test_data = pd.read_csv(directory / "transformed-data" / "t_test_data.csv", header=None)
+    validation_data = pd.read_csv(directory / "transformed-data" / "t_validation_data.csv", header=None)
 
-    # After transforming the data, the number of columns should be 7 for X data:
+    # After transforming the data, the number of columns should be 
+    # 12 for X data and y:
     # * 3 - island (one-hot encoded)
+    # * 3 - species (one-hot encoded)
     # * 1 - culmen_length_mm = 1
     # * 1 - culmen_depth_mm
     # * 1 - flipper_length_mm
     # * 1 - body_mass_g
     # * 2 - sex (one-hot encoded)
-    X_nr_columns = 9
+    nr_columns = 12
 
-    # After transforming the data, number of columns should be 3 for y data:
-    # * 3 - species (one-hot encoded)
-    y_nr_columns = 3
-
-    assert X_train.shape[1] == X_nr_columns
-    assert y_train.shape[1] == y_nr_columns
-    assert X_test.shape[1] == X_nr_columns
-    assert y_test.shape[1] == y_nr_columns
+    assert train_data.shape[1] == nr_columns
+    assert test_data.shape[1] == nr_columns
+    assert validation_data.shape[1] == nr_columns
 
 
-def test_train_baseline_is_not_transformed(directory):
+def test_baseline_data_is_not_transformed(directory):
     baseline = pd.read_csv(directory / "baseline" / "train-baseline.csv", header=None)
 
-    island = baseline.iloc[:, 1].unique()
-
+    island = baseline.iloc[:, 0].unique()
     assert "Biscoe" in island
     assert "Torgersen" in island
     assert "Dream" in island
 
-
-def test_test_baseline_is_not_transformed(directory):
     baseline = pd.read_csv(directory / "baseline" / "test-baseline.csv", header=None)
 
-    island = baseline.iloc[:, 1].unique()
+    island = baseline.iloc[:, 0].unique()
+    assert "Biscoe" in island
+    assert "Torgersen" in island
+    assert "Dream" in island
 
+    baseline = pd.read_csv(directory / "baseline" / "validation-baseline.csv", header=None)
+
+    island = baseline.iloc[:, 0].unique()
     assert "Biscoe" in island
     assert "Torgersen" in island
     assert "Dream" in island
