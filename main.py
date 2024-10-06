@@ -74,7 +74,7 @@ if __name__ == "__main__":
             outputs=[
                 ProcessingOutput(
                     output_name="data-splits",
-                    source=os.path.join(pc_base_directory, "data-splits"),
+                    source=os.path.join(pc_base_directory, "transformed-data"),
                     destination=os.path.join(s3_project_uri, "processing-step/data-splits")
                 ),
                 ProcessingOutput(
@@ -117,6 +117,12 @@ if __name__ == "__main__":
         step_args=tf_estimator.fit(
             inputs={
                 "train": TrainingInput(
+                    s3_data=processing_step.properties.ProcessingOutputConfig.Outputs[
+                        "data-splits"
+                    ].S3Output.S3Uri,
+                    content_type="text/csv",
+                ),
+                "validation": TrainingInput(
                     s3_data=processing_step.properties.ProcessingOutputConfig.Outputs[
                         "data-splits"
                     ].S3Output.S3Uri,
