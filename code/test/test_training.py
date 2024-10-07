@@ -36,12 +36,6 @@ def directory(monkeypatch):
 
     shutil.rmtree(base_temp_dir)
 
-def test_train_data_read_correctly(directory):
-    # check number columns
-    # check number rows
-    pass
-
 def test_train_job_save_a_folder_with_model_artifacts(directory):
-    pass
-#     assert "assets" in os.listdir(directory / "model")
-#     assert "saved_model.pb" in os.listdir(directory / "model" / "assets")
+    assert "001" in os.listdir(directory / "model")
+    assert "saved_model.pb" in os.listdir(directory / "model" / "001")
