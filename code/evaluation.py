@@ -6,21 +6,22 @@ import keras
 import numpy as np
 from sklearn.metrics import accuracy_score
 import json
+import os
 
 
 def evaluate(pc_base_directory):
     eval_data_dir = pc_base_directory / "evaluation-data"
-    X_test = pd.read_csv(eval_data_dir / "test" / "X_test.csv")
-    y_test = pd.read_csv(eval_data_dir / "test" / "y_test.csv")
+    eval_data = pd.read_csv(eval_data_dir / "t_test_data.csv")
+    y_eval = eval_data.iloc[:,-3:]
+    X_eval = eval_data.iloc[:,:-3]
 
     model_dir = pc_base_directory / "evaluation-model"
     with tarfile.open(model_dir / "model.tar.gz") as tar_file:
         tar_file.extractall(path=model_dir)
-
     model = keras.models.load_model(model_dir / "001")
 
-    predictions = np.argmax(model.predict(np.array(X_test)), axis=-1)
-    true_labels = np.argmax(np.array(y_test), axis=-1)
+    predictions = np.argmax(model.predict(np.array(X_eval)), axis=-1)
+    true_labels = np.argmax(np.array(y_eval), axis=-1)
     accuracy = accuracy_score(true_labels, predictions)
 
     evaluation_report = {
