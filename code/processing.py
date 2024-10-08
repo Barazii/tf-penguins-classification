@@ -18,18 +18,22 @@ def process(pc_base_directory):
     y = df.species
     
     train_test_split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
-    train_validation_split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=41)
+    n_splits = 3
+    train_validation_split = StratifiedShuffleSplit(n_splits=n_splits, test_size=0.2, random_state=41)
+
     for train_index, test_index in train_test_split.split(X, y):
         X_train_full, X_test = X.iloc[train_index], X.iloc[test_index]
         y_train_full, y_test = y.iloc[train_index], y.iloc[test_index]
+    test_data = pd.concat([X_test, y_test], axis=1)
 
-    for train_index, valid_index in train_validation_split.split(X_train_full, y_train_full):
+    train_data = []
+    validation_data = []
+    for i, (train_index, valid_index) in enumerate(train_validation_split.split(X_train_full, y_train_full)):
         X_train, X_valid = X_train_full.iloc[train_index], X_train_full.iloc[valid_index]
         y_train, y_valid = y_train_full.iloc[train_index], y_train_full.iloc[valid_index]
+        train_data.append(pd.concat([X_train, y_train], axis=1))
+        validation_data.append(pd.concat([X_valid, y_valid], axis=1))
 
-    train_data = pd.concat([X_train, y_train], axis=1)
-    test_data = pd.concat([X_test, y_test], axis=1)
-    validation_data = pd.concat([X_valid, y_valid], axis=1)
     _save_baseline(pc_base_directory, train_data, test_data, validation_data)
 
     # build the the column transformers
@@ -41,23 +45,21 @@ def process(pc_base_directory):
         verbose=True,
     )
 
-    ty_train = transformers.fit_transform(pd.DataFrame(train_data.species))
-    ty_validation = transformers.transform(pd.DataFrame(validation_data.species))
-    ty_test = transformers.transform(pd.DataFrame(test_data.species))
+    t_train_data = []
+    t_validation_data = []
+    trans_list = []
+    for (id, t_data, v_data) in zip(range(n_splits), train_data, validation_data):
+        ty_train = transformers.fit_transform(pd.DataFrame(t_data.species))
+        ty_validation = transformers.transform(pd.DataFrame(v_data.species))
+        tX_train = transformers.fit_transform(t_data.drop("species", axis=1))
+        tX_validation = transformers.transform(v_data.drop("species", axis=1))
+        trans_list.append(transformers)
+        t_train_data.append(pd.DataFrame(np.concatenate([tX_train, ty_train], axis=1)))
+        t_validation_data.append(pd.DataFrame(np.concatenate([tX_validation, ty_validation], axis=1)))
 
-    train_data = train_data.drop("species", axis=1)
-    validation_data = validation_data.drop("species", axis=1)
-    test_data = test_data.drop("species", axis=1)
+    _save_transformed_data(pc_base_directory, t_train_data, t_validation_data)
+    _save_transformers(pc_base_directory, trans_list)
 
-    tX_train = transformers.fit_transform(train_data)
-    tX_test = transformers.transform(test_data)
-    tX_validation = transformers.transform(validation_data)
-
-    t_train_data = pd.DataFrame(np.concatenate([tX_train, ty_train], axis=1))
-    t_test_data = pd.DataFrame(np.concatenate([tX_test, ty_test], axis=1))
-    t_validation_data = pd.DataFrame(np.concatenate([tX_validation, ty_validation], axis=1))
-    _save_transformed_data(pc_base_directory, t_train_data, t_test_data, t_validation_data)
-    _save_transformers(pc_base_directory, transformers)
 
 def _read_csv_data(pc_base_directory):
     csv_file_path = (pc_base_directory / "data").glob("*.csv")
@@ -67,27 +69,33 @@ def _read_csv_data(pc_base_directory):
 def _save_baseline(pc_base_directory, train_data, test_data, validation_data):
     path = pc_base_directory / "baseline"
     path.mkdir(exist_ok=True, parents=True)
-    train_data.to_csv(path / "train-baseline.csv", header=True, index=False)
     test_data.to_csv(path / "test-baseline.csv", header=True, index=False)
-    validation_data.to_csv(path / "validation-baseline.csv", header=True, index=False)
+    for i,data in enumerate(train_data):
+        data.to_csv(path / f"train-baseline-{i+1}.csv", header=True, index=False)
+    for i,data in enumerate(validation_data):    
+        data.to_csv(path / f"validation-baseline-{i+1}.csv", header=True, index=False)
 
-def _save_transformed_data(pc_base_directory, t_train_data, t_test_data, t_validation_data):
+def _save_transformed_data(pc_base_directory, t_train_data, t_validation_data):
     path = pc_base_directory / "transformed-data"
     path.mkdir(exist_ok=True, parents=True)
-    t_train_data.to_csv(path / "t_train_data.csv", header=False, index=False)
-    t_test_data.to_csv(path / "t_test_data.csv", header=False, index=False)
-    t_validation_data.to_csv(path / "t_validation_data.csv", header=False, index=False)
+    for i,data in zip(range(len(t_train_data)), t_train_data):
+        data.to_csv(path / f"t_train_data_{i+1}.csv", header=False, index=False)
+    for i,data in zip(range(len(t_validation_data)), t_validation_data):
+        data.to_csv(path / f"t_validation_data_{i+1}.csv", header=False, index=False)
 
-def _save_transformers(pc_base_directory, transformers):
+def _save_transformers(pc_base_directory, transformers_list):
 
     transformers_path = pc_base_directory / "transformers"
     transformers_path.mkdir(parents=True, exist_ok=True)
     
     with tempfile.TemporaryDirectory() as directory:
-        joblib.dump(transformers, os.path.join(directory, "transformers.joblib"))
+        for i,transformers in zip(range(len(transformers_list)), transformers_list):
+            joblib.dump(transformers, os.path.join(directory, f"transformers_{i+1}.joblib"))
 
-        with tarfile.open(f"{str(transformers_path / 'transformers.tar.gz')}", "w:gz") as tar_file:
-            tar_file.add(os.path.join(directory, "transformers.joblib"), arcname="transformers.joblib")
+        with tarfile.open(transformers_path / 'transformers.tar.gz', "w:gz") as tar_file:
+            for filename in os.listdir(directory):
+                file_path = os.path.join(directory, filename)
+                tar_file.add(file_path, arcname=filename)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

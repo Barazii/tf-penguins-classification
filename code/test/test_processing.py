@@ -35,28 +35,38 @@ def test_preprocess_generates_transformed_data(directory):
     output_directories = os.listdir(directory)
     
     assert "transformed-data" in output_directories
-    assert "t_train_data.csv" in os.listdir(directory / "transformed-data")
-    assert "t_test_data.csv" in os.listdir(directory / "transformed-data")
-    assert "t_validation_data.csv" in os.listdir(directory / "transformed-data")
+    assert "t_train_data_1.csv" in os.listdir(directory / "transformed-data")
+    assert "t_train_data_2.csv" in os.listdir(directory / "transformed-data")
+    assert "t_train_data_3.csv" in os.listdir(directory / "transformed-data")
+    assert "t_validation_data_1.csv" in os.listdir(directory / "transformed-data")
+    assert "t_validation_data_2.csv" in os.listdir(directory / "transformed-data")
+    assert "t_validation_data_3.csv" in os.listdir(directory / "transformed-data")
+
 
 
 def test_preprocess_generates_baselines(directory):
     output_directories = os.listdir(directory)
     assert "baseline" in output_directories
     assert "test-baseline.csv" in os.listdir(directory / "baseline")
-    assert "train-baseline.csv" in os.listdir(directory / "baseline")
+    assert "train-baseline-1.csv" in os.listdir(directory / "baseline")
+    assert "train-baseline-2.csv" in os.listdir(directory / "baseline")
+    assert "train-baseline-3.csv" in os.listdir(directory / "baseline")
+    assert "validation-baseline-1.csv" in os.listdir(directory / "baseline")
+    assert "validation-baseline-2.csv" in os.listdir(directory / "baseline")
+    assert "validation-baseline-3.csv" in os.listdir(directory / "baseline")
 
 
 def test_preprocess_creates_data_transformers(directory):
     path = directory / "transformers"
     tar = tarfile.open(path / 'transformers.tar.gz', "r:gz")
-    assert "transformers.joblib" in tar.getnames()
+    assert "transformers_1.joblib" in tar.getnames()
+    assert "transformers_2.joblib" in tar.getnames()
+    assert "transformers_3.joblib" in tar.getnames()
 
 
 def test_splits_are_transformed(directory):
-    train_data = pd.read_csv(directory / "transformed-data" / "t_train_data.csv", header=None)
-    test_data = pd.read_csv(directory / "transformed-data" / "t_test_data.csv", header=None)
-    validation_data = pd.read_csv(directory / "transformed-data" / "t_validation_data.csv", header=None)
+    train_data = pd.read_csv(directory / "transformed-data" / "t_train_data_1.csv", header=None)
+    validation_data = pd.read_csv(directory / "transformed-data" / "t_validation_data_3.csv", header=None)
 
     # After transforming the data, the number of columns should be 
     # 12 for X data and y:
@@ -70,12 +80,11 @@ def test_splits_are_transformed(directory):
     nr_columns = 12
 
     assert train_data.shape[1] == nr_columns
-    assert test_data.shape[1] == nr_columns
     assert validation_data.shape[1] == nr_columns
 
 
 def test_baseline_data_is_not_transformed(directory):
-    baseline = pd.read_csv(directory / "baseline" / "train-baseline.csv", header=None)
+    baseline = pd.read_csv(directory / "baseline" / "train-baseline-1.csv", header=None)
 
     island = baseline.iloc[:, 0].unique()
     assert "Biscoe" in island
@@ -89,7 +98,7 @@ def test_baseline_data_is_not_transformed(directory):
     assert "Torgersen" in island
     assert "Dream" in island
 
-    baseline = pd.read_csv(directory / "baseline" / "validation-baseline.csv", header=None)
+    baseline = pd.read_csv(directory / "baseline" / "validation-baseline-2.csv", header=None)
 
     island = baseline.iloc[:, 0].unique()
     assert "Biscoe" in island
