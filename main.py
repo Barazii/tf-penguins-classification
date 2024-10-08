@@ -152,6 +152,7 @@ if __name__ == "__main__":
     eval_step = ProcessingStep(
         name="evaluation-step",
         step_args=eval_processor.run(
+            dependencies=["requirements.txt"],
             code=f"./code/evaluation.py",
             arguments=[
                 "--pc_base_directory", f"{pc_base_directory}",
@@ -159,8 +160,13 @@ if __name__ == "__main__":
             inputs=[
                 ProcessingInput(
                     input_name="evaluation-data",
-                    source=processing_step.properties.ProcessingOutputConfig.Outputs["data-splits"].S3Output.S3Uri,
+                    source=processing_step.properties.ProcessingOutputConfig.Outputs["baseline"].S3Output.S3Uri,
                     destination=f"{pc_base_directory}/evaluation-data",
+                ),
+                ProcessingInput(
+                    input_name="transformers",
+                    source=processing_step.properties.ProcessingOutputConfig.Outputs["transformers"].S3Output.S3Uri,
+                    destination=f"{pc_base_directory}/transformers",
                 ),
                 ProcessingInput(
                     input_name="evaluation-model",
