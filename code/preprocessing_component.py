@@ -20,16 +20,16 @@ FEATURE_COLUMNS = [
 
 
 def model_fn(transformer_dir):
-    transformer_dir = Path(transformer_dir) 
-
-    return joblib.load(transformer_dir / "transformers.joblib")
+    transformer_dir = Path(transformer_dir)
+    return joblib.load(transformer_dir / "transformers_1.joblib")
 
 def input_fn(input_content, input_content_type):
-
+    if input_content == None:
+        raise ValueError("No input data received.")
     if input_content_type == "text/csv":
         df = pd.read_csv(StringIO(input_content), header=None, skipinitialspace=True)
         if len(df.columns) == len(FEATURE_COLUMNS) + 1: # for quality check step where data includes the label col
-            df = df.drop(columns=df.columns[0], axis=1)
+            df = df.drop(columns=df.columns[-1], axis=1)
         df.columns = FEATURE_COLUMNS
         return df
 
@@ -51,9 +51,6 @@ def predict_fn(input_data, transformer):
         raise Exception("Error transforming the input data.")
     
 def output_fn(transformed_input, accept):
-    if transformed_input is None:
-        raise ValueError("There was an error transforming the input data")
-    
     output = {"instances": transformed_input.tolist()}
 
     try:
