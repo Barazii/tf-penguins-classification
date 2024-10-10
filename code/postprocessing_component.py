@@ -5,7 +5,7 @@ try:
 except ImportError:
     worker = None
 
-TARGET_CATEGORIES = ['Biscoe', 'Dream', 'Torgersen']
+TARGET_CATEGORIES = ['Adelie', 'Chinstrap', 'Gentoo']
 
 
 def model_fn(arg=None):
@@ -13,6 +13,8 @@ def model_fn(arg=None):
     return target_categories
 
 def input_fn(model_output_probabilities, content_type):
+    if model_output_probabilities == None or len(model_output_probabilities) == 0:
+        raise ValueError("No predictions/probabilities received from the model.")
     if content_type == "application/json":
         probabilities = json.loads(model_output_probabilities)["predictions"]
         return probabilities
