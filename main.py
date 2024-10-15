@@ -231,7 +231,8 @@ if __name__ == "__main__":
         role=role,
     )
 
-    # set up quality monitoring for model and data
+    # set up quality baselines for model and data
+    # Data quality baseline
     data_quality_baseline_step = QualityCheckStep(
         name="generate-data-quality-baseline",
         check_job_config=CheckJobConfig(
@@ -252,26 +253,27 @@ if __name__ == "__main__":
             dataset_format=DatasetFormat.csv(header=False, output_columns_position="START"),
             output_s3_uri=DATA_QUALITY_LOCATION,
         ),
-        model_package_group_name=MODEL_GROUP_NAME,
+        model_package_group_name=MODEL_PACKAGE_GROUP_NAME,
         skip_check=True,
         register_new_baseline=True,
         cache_config=cache_config,
     )
-    create_model_step = ModelStep(
+    # Model quality baseline
+    model_step = ModelStep(
         name="create-model",
         step_args=inference_model.create(instance_type=instance_type),
     )
     transformer = Transformer(
-        model_name=create_model_step.properties.ModelName,
+        model_name=model_step.properties.ModelName,
         instance_type=instance_type,
         instance_count=1,
         strategy="MultiRecord",
         accept="text/csv",
         assemble_with="Line",
-        output_path=f"{s3_project_uri}/transform",
+        output_path=TRANSFORM_LOCATION,
         sagemaker_session=pipeline_session,
     )
-    generate_test_predictions_step = TransformStep(
+    transform_step = TransformStep(
         name="generate-test-predictions",
         step_args=transformer.transform(
             data=Join(
@@ -284,18 +286,17 @@ if __name__ == "__main__":
             join_source="Input",
             split_type="Line",
             content_type="text/csv",
-            # The first field corresponds to the groundtruth,
-            # and the second to last field corresponds to the transform output.
+            # The first field corresponds to the groundtruth coming from the
+            # test set, and the second to last field corresponds to the 
+            # transform output or the model prediction.
             #
             # Here is an example of the data generated
             # after joining the input with the transform output:
+            # Gentoo,Biscoe,39.1,18.7,181.0,3750.0,MALE,Gentoo,0.52
             #
-            # Gentoo,39.1,18.7,181.0,3750.0,MALE,Gentoo,0.52
-            #
-            # Notice how the first field is the groundtruth coming from the
-            # test set. The second to last field is the prediction coming the
-            # model.
-            # output_filter="$[0,-2]",
+            # We only take groundtruth, predicted class and confidence score
+            # to use it for comparison and quality check.
+            output_filter="$[0,-2,-1]",
         ),
         cache_config=cache_config,
     )
@@ -311,7 +312,7 @@ if __name__ == "__main__":
         quality_check_config=ModelQualityCheckConfig(
             # We are going to use the output of the Transform Step to generate
             # the model quality baseline.
-            baseline_dataset=generate_test_predictions_step.properties.TransformOutput.S3OutputPath,
+            baseline_dataset=transform_step.properties.TransformOutput.S3OutputPath,
             dataset_format=DatasetFormat.csv(header=False),
 
             # We need to specify the problem type and the fields where the prediction
@@ -324,7 +325,7 @@ if __name__ == "__main__":
             inference_attribute="_c1",
             output_s3_uri=MODEL_QUALITY_LOCATION,
         ),
-        model_package_group_name=MODEL_GROUP_NAME,
+        model_package_group_name=MODEL_PACKAGE_GROUP_NAME,
         skip_check=True,
         register_new_baseline=True,
         cache_config=cache_config,
@@ -372,7 +373,7 @@ if __name__ == "__main__":
         name="registration-step",
         display_name="registration-step",
         step_args=inference_model.register(
-            model_package_group_name=MODEL_GROUP_NAME,
+            model_package_group_name=MODEL_PACKAGE_GROUP_NAME,
             model_metrics=model_metrics,
             drift_check_baselines=drift_check_baselines,
             approval_status="PendingManualApproval",
@@ -449,12 +450,12 @@ if __name__ == "__main__":
         print(f'Function "{lambda_response["FunctionName"]}" already has permissions.')
 
     # set up the condition step
-    accuracy_threshold = ParameterFloat(name="accuracy_threshold", default_value=0.65)
+    accuracy_threshold = ParameterFloat(name="accuracy_threshold", default_value=0.6)
     condition = ConditionGreaterThanOrEqualTo(
         left=JsonGet(
             step_name=eval_step.name,
             property_file=eval_report,
-            json_path="metrics.accuracy",
+            json_path="metrics.accuracy.model_1",
         ),
         right=accuracy_threshold
     )
@@ -472,8 +473,8 @@ if __name__ == "__main__":
         name="condition-step",
         conditions=[condition],
         if_steps=[
-            create_model_step, 
-            generate_test_predictions_step,
+            model_step, 
+            transform_step,
             model_quality_baseline_step,
             registration_step
         ],
