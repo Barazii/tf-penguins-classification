@@ -32,8 +32,6 @@ from sagemaker.model_monitor.dataset_format import DatasetFormat
 from sagemaker.transformer import Transformer
 from sagemaker.workflow.steps import TransformStep
 from sagemaker.drift_check_baselines import DriftCheckBaselines
-from sagemaker.model_monitor import CronExpressionGenerator, DefaultModelMonitor
-from sagemaker.model_monitor import ModelQualityMonitor, EndpointInput
 
 
 if __name__ == "__main__":
@@ -247,7 +245,7 @@ if __name__ == "__main__":
                 on="/",
                 values=[
                     processing_step.properties.ProcessingOutputConfig.Outputs["baseline"].S3Output.S3Uri,
-                    "train-baseline.csv"
+                    "train-baseline-1.csv"
                 ]
             ),
             dataset_format=DatasetFormat.csv(header=False, output_columns_position="START"),
@@ -388,66 +386,6 @@ if __name__ == "__main__":
             description="commit message here",
         ),
     )
-    
-    # set up the lambda function
-    lambda_role_arn = create_lambda_role_arn()
-
-    deploy_lambda_fn = Lambda(
-        function_name="deploy_fn",
-        execution_role_arn=lambda_role_arn,
-        script="code/lambda.py",
-        handler="lambda.lambda_handler",
-        timeout=600,
-        session=session,
-        runtime="python3.11",
-        environment={
-            "Variables": {
-                "ENDPOINT": ENDPOINT,
-                "DATA_CAPTURE_DESTINATION": DATA_CAPTURE_DESTINATION,
-                "ROLE": role,
-            }
-        },
-    )
-    lambda_response = deploy_lambda_fn.upsert()
-
-    # set up the event bridge for lambda step 
-    event_pattern = f"""
-    {{
-    "source": ["aws.sagemaker"],
-    "detail-type": ["SageMaker Model Package State Change"],
-    "detail": {{
-        "ModelPackageGroupName": ["{MODEL_GROUP_NAME}"],
-        "ModelApprovalStatus": ["Approved"]
-    }}
-    }}
-    """
-    events_client = boto3.client("events")
-    rule_response = events_client.put_rule(
-        Name="PipelineModelApprovedRule",
-        EventPattern=event_pattern,
-        State="ENABLED",
-        RoleArn=role,
-    )
-    events_client.put_targets(
-        Rule="PipelineModelApprovedRule",
-        Targets=[
-            {
-                "Id": "1",
-                "Arn": lambda_response["FunctionArn"],
-            }
-        ],
-    )
-    lambda_client = boto3.client("lambda")
-    try:
-        response = lambda_client.add_permission(
-            Action="lambda:InvokeFunction",
-            FunctionName=lambda_response["FunctionName"],
-            Principal="events.amazonaws.com",
-            SourceArn=rule_response["RuleArn"],
-            StatementId="EventBridge",
-        )
-    except lambda_client.exceptions.ResourceConflictException as e:
-        print(f'Function "{lambda_response["FunctionName"]}" already has permissions.')
 
     # set up the condition step
     accuracy_threshold = ParameterFloat(name="accuracy_threshold", default_value=0.6)
@@ -499,99 +437,10 @@ if __name__ == "__main__":
     pipeline.upsert(role_arn=role)
 
     # start the pipeline
-    ret = pipeline.start()
-
-    # monitoring jobs
-    print("waiting for pipeline execution...")
-    ret.wait(delay=180)
-    print("execution finished")
-    # s3_client.upload_file(Filename="./code/data_quality_preprocessing.py", Bucket=bucket, Key=MONITORING_SCRIPT_LOCATION)
-
-    # sagemaker_client = boto3.client("sagemaker")
-
-    # # data quality monitoring job
-    # try:
-    #     data_monitor = DefaultModelMonitor(
-    #         instance_type=instance_type,
-    #         instance_count=1,
-    #         max_runtime_in_seconds=3600,
-    #         role=role,
-    #     )
-    #     data_monitor.create_monitoring_schedule(
-    #         monitor_schedule_name="data-monitoring-schedule",
-    #         endpoint_input=ENDPOINT,
-    #         record_preprocessor_script=data_quality_preprocessing_uri,
-    #         statistics=f"{DATA_QUALITY_LOCATION}/statistics.json",
-    #         constraints=f"{DATA_QUALITY_LOCATION}/constraints.json",
-    #         schedule_cron_expression=CronExpressionGenerator.hourly(),
-    #         output_s3_uri=DATA_QUALITY_LOCATION,
-    #         enable_cloudwatch_metrics=True,
-    #     )
-    # except sagemaker_client.exceptions.ResourceInUse as _:
-    #     boto3.client("sagemaker").delete_monitoring_schedule(MonitoringScheduleName='data-monitoring-schedule')
-    #     import time
-    #     time.sleep(10)
-    #     data_monitor = DefaultModelMonitor(
-    #         instance_type=instance_type,
-    #         instance_count=1,
-    #         max_runtime_in_seconds=3600,
-    #         role=role,
-    #     )
-    #     data_monitor.create_monitoring_schedule(
-    #         monitor_schedule_name="data-monitoring-schedule",
-    #         endpoint_input=ENDPOINT,
-    #         record_preprocessor_script=data_quality_preprocessing_uri,
-    #         statistics=f"{DATA_QUALITY_LOCATION}/statistics.json",
-    #         constraints=f"{DATA_QUALITY_LOCATION}/constraints.json",
-    #         schedule_cron_expression=CronExpressionGenerator.hourly(),
-    #         output_s3_uri=DATA_QUALITY_LOCATION,
-    #         enable_cloudwatch_metrics=True,
-    #     )
-    
-    # # model quality monitoring job
-    # try:
-    #     model_monitor = ModelQualityMonitor(
-    #         instance_type=instance_type,
-    #         instance_count=1,
-    #         max_runtime_in_seconds=1800,
-    #         role=role
-    #     )
-    #     model_monitor.create_monitoring_schedule(
-    #         monitor_schedule_name="model-monitoring-schedule",
-    #         endpoint_input = EndpointInput(
-    #             endpoint_name=ENDPOINT,
-    #             inference_attribute="prediction",
-    #             destination="/opt/ml/processing/input_data",
-    #         ),
-    #         problem_type="MulticlassClassification",
-    #         ground_truth_input=GROUND_TRUTH_LOCATION,
-    #         constraints=f"{MODEL_QUALITY_LOCATION}/constraints.json",
-    #         schedule_cron_expression=CronExpressionGenerator.hourly(),
-    #         output_s3_uri=MODEL_QUALITY_LOCATION,
-    #         enable_cloudwatch_metrics=True,
-    #     )
-    # except sagemaker_client.exceptions.ResourceInUse as _:
-    #     boto3.client("sagemaker").delete_monitoring_schedule(MonitoringScheduleName='model-monitoring-schedule')
-    #     import time
-    #     time.sleep(10)
-    #     model_monitor = ModelQualityMonitor(
-    #         instance_type=instance_type,
-    #         instance_count=1,
-    #         max_runtime_in_seconds=1800,
-    #         role=role
-    #     )
-    #     model_monitor.create_monitoring_schedule(
-    #         monitor_schedule_name="model-monitoring-schedule",
-    #         endpoint_input = EndpointInput(
-    #             endpoint_name=ENDPOINT,
-    #             inference_attribute="prediction",
-    #             destination="/opt/ml/processing/input_data",
-    #         ),
-    #         problem_type="MulticlassClassification",
-    #         ground_truth_input=GROUND_TRUTH_LOCATION,
-    #         constraints=f"{MODEL_QUALITY_LOCATION}/constraints.json",
-    #         schedule_cron_expression=CronExpressionGenerator.hourly(),
-    #         output_s3_uri=MODEL_QUALITY_LOCATION,
-    #         enable_cloudwatch_metrics=True,
-    #     )
-    # # describe_data_monitoring_schedule(ENDPOINT)
+    try:
+        ret = pipeline.start()
+        print("waiting for pipeline execution...")
+        ret.wait(delay=180)
+        print("execution finished")
+    except:
+        raise Exception("Failure in running the pipeline.")
