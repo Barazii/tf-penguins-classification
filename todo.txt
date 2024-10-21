@@ -1,4 +1,3 @@
-Cross validation 
 try TrainingCompilerConfig
 automate testing
 use sklearn training model
@@ -7,4 +6,4 @@ do HP tuning
 create two directories: pc_basE_dir=/opt/ml/processing and ec_base_dir=/opt/ml/evaluation
 make more files simplify main file 
 use logging instead of print
-test setup lambda function independently, if work, then undo and run it in another thread. 
+move the constants to json file. 
