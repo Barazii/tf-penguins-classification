@@ -32,6 +32,8 @@ from sagemaker.model_monitor.dataset_format import DatasetFormat
 from sagemaker.transformer import Transformer
 from sagemaker.workflow.steps import TransformStep
 from sagemaker.drift_check_baselines import DriftCheckBaselines
+import threading
+from code.lambda_setup import set_up_lambda_fn
 
 
 if __name__ == "__main__":
@@ -401,6 +403,11 @@ if __name__ == "__main__":
         pipeline_definition_config=pl_def_config,
     )
     pipeline.upsert(role_arn=role)
+
+    # before starting the pipeline, set up the lambda function in the background 
+    # in another thread.
+    thread = threading.Thread(target=set_up_lambda_fn)
+    thread.start()
 
     # start the pipeline
     try:
