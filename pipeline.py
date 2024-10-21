@@ -186,13 +186,51 @@ if __name__ == "__main__":
         cache_config=cache_config,
     )
 
-    # create the inference model
-    inference_model = TensorFlowModel(
-        name="inference-model",
+    # build the inference pipeline (preprocessing model, trained model, postprocessing model)
+    # 1. the pre processing model
+    transformers_uri = Join(
+        on="/",
+        values=[
+            processing_step.properties.ProcessingOutputConfig.Outputs["transformers"].S3Output.S3Uri,
+            "transformers.tar.gz"
+        ]
+    )
+    preprocessing_model = SKLearnModel(
+        name="preprocessing-model",
+        model_data=transformers_uri,
+        entry_point=f"./code/preprocessing_component.py",
+        framework_version=skl_version,
+        sagemaker_session=pipeline_session,
+        role=role,
+    )
+
+    env = {
+        'SAGEMAKER_TFS_DEFAULT_MODEL_NAME': 'model1'
+    }
+    # 2. the model we trained
+    tf_model = TensorFlowModel(
+        name="trained-model",
         model_data=model_assets,
-        entry_point="./code/inference.py",
-        source_dir="requirements.txt",
         framework_version=tf_version,
+        sagemaker_session=pipeline_session,
+        role=role,
+        env=env,
+    )
+
+    # 3. the post processing model
+    postprocessing_model = SKLearnModel(
+        name="postprocessing-model",
+        model_data=transformers_uri,
+        entry_point=f"./code/postprocessing_component.py",
+        framework_version=skl_version,
+        sagemaker_session=pipeline_session,
+        role=role,
+    )
+
+    # build the inference pipeline
+    inference_model = PipelineModel(
+        name="inference-model",
+        models=[preprocessing_model, tf_model, postprocessing_model],
         sagemaker_session=pipeline_session,
         role=role,
     )
@@ -262,7 +300,7 @@ if __name__ == "__main__":
             #
             # We only take groundtruth, predicted class and confidence score
             # to use it for comparison and quality check.
-            output_filter="$[0,-2,-1]",
+            output_filter="$[-3,-2,-1]",
         ),
         cache_config=cache_config,
     )
@@ -415,5 +453,5 @@ if __name__ == "__main__":
         print("waiting for pipeline execution...")
         ret.wait(delay=180)
         print("execution finished")
-    except:
-        raise Exception("Failure in running the pipeline.")
+    except Exception as e:
+        print("Error in running the pipeline.", e)

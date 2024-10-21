@@ -10,6 +10,15 @@ import joblib
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.preprocessing import OneHotEncoder
 
+FEATURE_COLUMNS = [
+    "island",
+    "culmen_length_mm",
+    "culmen_depth_mm",
+    "flipper_length_mm",
+    "body_mass_g",
+    "sex",
+    "species"
+]
 
 def evaluate(pc_base_directory):
     transformers_dir = pc_base_directory / "transformers"
@@ -20,7 +29,8 @@ def evaluate(pc_base_directory):
     transformer_3 = joblib.load(transformers_dir / "transformers_3.joblib")
 
     eval_data_dir = pc_base_directory / "evaluation-data"
-    eval_data = pd.read_csv(eval_data_dir / "test-baseline.csv")
+    eval_data = pd.read_csv(eval_data_dir / "test-baseline.csv", header=None)
+    eval_data.columns = FEATURE_COLUMNS
     X_eval_1 = transformer_1.transform(eval_data.drop(columns="species", axis=1))
     X_eval_2 = transformer_2.transform(eval_data.drop(columns="species", axis=1))
     X_eval_3 = transformer_3.transform(eval_data.drop(columns="species", axis=1))
@@ -28,9 +38,9 @@ def evaluate(pc_base_directory):
     model_dir = pc_base_directory / "evaluation-model"
     with tarfile.open(model_dir / "model.tar.gz") as tar_file:
         tar_file.extractall(path=model_dir)
-    model_1 = keras.models.load_model(model_dir / "001")
-    model_2 = keras.models.load_model(model_dir / "002")
-    model_3 = keras.models.load_model(model_dir / "003")
+    model_1 = keras.models.load_model(model_dir / "model1" / "001")
+    model_2 = keras.models.load_model(model_dir / "model2" / "002")
+    model_3 = keras.models.load_model(model_dir / "model3" / "003")
 
     target_transformer = ColumnTransformer(
         transformers=[

@@ -69,7 +69,7 @@ def _read_csv_data(pc_base_directory):
 def _save_baseline(pc_base_directory, train_data, test_data, validation_data):
     path = pc_base_directory / "baseline"
     path.mkdir(exist_ok=True, parents=True)
-    test_data.to_csv(path / "test-baseline.csv", header=True, index=False)
+    test_data.to_csv(path / "test-baseline.csv", header=False, index=False)
     for i,data in enumerate(train_data):
         data.to_csv(path / f"train-baseline-{i+1}.csv", header=True, index=False)
     for i,data in enumerate(validation_data):    

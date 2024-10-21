@@ -67,9 +67,11 @@ def train(train_data_dir, valid_data_dir, hp_epochs=20, hp_batch_size=32):
         # accuracy = accuracy_score(true_labels, predicted_labels)
         # print(f"Training accuracy: {accuracy}")
 
-        # save the trained model into the container (and sm will transfer it to s3)
+        # save the trained model into the container (and sm will transfer it to s3).
+        # model number and version number in this way required by sagemaker for
+        # handling multiple models. 
         model_dir = os.environ["SM_MODEL_DIR"]
-        model.save(Path(model_dir) / f"00{i+1}")
+        model.save(Path(model_dir) / f"model{i+1}" / f"00{i+1}")
 
 
 if __name__ == "__main__":
