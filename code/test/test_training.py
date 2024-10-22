@@ -37,10 +37,10 @@ def directory(monkeypatch):
     shutil.rmtree(base_temp_dir)
 
 def test_train_job_save_3_models_artifacts(directory):
-    assert "001" in os.listdir(directory / "model")
-    assert "002" in os.listdir(directory / "model")
-    assert "003" in os.listdir(directory / "model")
+    assert "model1" in os.listdir(directory / "model")
+    assert "model2" in os.listdir(directory / "model")
+    assert "model3" in os.listdir(directory / "model")
 
-    assert "saved_model.pb" in os.listdir(directory / "model" / "001")
-    assert "saved_model.pb" in os.listdir(directory / "model" / "002")
-    assert "saved_model.pb" in os.listdir(directory / "model" / "003")
+    assert "saved_model.pb" in os.listdir(directory / "model" / "model1" / "001")
+    assert "saved_model.pb" in os.listdir(directory / "model" / "model2" / "002")
+    assert "saved_model.pb" in os.listdir(directory / "model" / "model3" / "003")

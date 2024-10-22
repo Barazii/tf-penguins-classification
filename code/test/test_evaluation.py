@@ -44,9 +44,9 @@ def directory(monkeypatch):
     shutil.copytree(pc_base_directory / "baseline", eval_data_dir, dirs_exist_ok=True)
 
     with tarfile.open(pc_base_directory / "model" / "model.tar.gz", "w:gz") as tar_file:
-        tar_file.add(pc_base_directory / "model" / "001", arcname="001")
-        tar_file.add(pc_base_directory / "model" / "002", arcname="002")
-        tar_file.add(pc_base_directory / "model" / "003", arcname="003")
+        tar_file.add(pc_base_directory / "model" / "model1", arcname="model1")
+        tar_file.add(pc_base_directory / "model" / "model2", arcname="model2")
+        tar_file.add(pc_base_directory / "model" / "model3", arcname="model3")
 
     eval_model_dir = ec_base_directory / "evaluation-model"
     eval_model_dir.mkdir(parents=True, exist_ok=True)

@@ -42,7 +42,7 @@ def directory(monkeypatch):
     shutil.rmtree(pc_base_directory)
 
 def test_input_fn(directory):
-    model_1 = models.load_model(directory / "model" / "001")
+    model_1 = models.load_model(directory / "model" / "model1" / "001")
     content_type = "application/json"
     sample_data = pd.read_csv(directory / "transformed-data" / "t_train_data_1.csv", header=None)
     sample_data = sample_data.iloc[1:5,:-3]
@@ -72,7 +72,7 @@ def test_input_fn_raise_error_about_model_predictions_2():
         input_fn(model_output_probabilities, content_type)
 
 def test_predict_fn(directory):
-    model = models.load_model(directory / "model" / "001")
+    model = models.load_model(directory / "model" / "model1" / "001")
     sample_data = pd.read_csv(directory / "transformed-data" / "t_train_data_1.csv", header=None)
     sample_data = sample_data.iloc[1:5,:-3]
     probabilities = model.predict(np.array(sample_data))
