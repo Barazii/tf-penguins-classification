@@ -33,7 +33,7 @@ from sagemaker.transformer import Transformer
 from sagemaker.workflow.steps import TransformStep
 from sagemaker.drift_check_baselines import DriftCheckBaselines
 import threading
-from code.lambda_fn import set_up_lambda_fn
+from code.auto_deploy import set_up_lambda_fn
 
 
 if __name__ == "__main__":
