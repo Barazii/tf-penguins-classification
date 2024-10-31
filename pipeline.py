@@ -254,7 +254,7 @@ if __name__ == "__main__":
                     "train-baseline-1.csv"
                 ]
             ),
-            dataset_format=DatasetFormat.csv(header=False, output_columns_position="START"),
+            dataset_format=DatasetFormat.csv(header=False, output_columns_position="END"),
             output_s3_uri=DATA_QUALITY_LOCATION,
         ),
         model_package_group_name=MODEL_PACKAGE_GROUP_NAME,
