@@ -5,6 +5,7 @@ from sagemaker.model_monitor import MonitoringExecution
 from sagemaker.session import Session
 from sagemaker.s3 import S3Downloader
 import os
+import time
 
 
 sagemaker_client = boto3.client("sagemaker")
@@ -124,6 +125,8 @@ def delete_monitoring_schedule(endpoint_name, monitoring_type):
 
 def delete_data_monitoring_schedule(endpoint_name):
     delete_monitoring_schedule(endpoint_name, "DataQuality")
+    time.sleep(10)
 
 def delete_model_monitoring_schedule(endpoint_name):
     delete_monitoring_schedule(endpoint_name, "ModelQuality")
+    time.sleep(10)

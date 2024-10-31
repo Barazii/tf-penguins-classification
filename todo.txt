@@ -7,3 +7,4 @@ create two directories: pc_basE_dir=/opt/ml/processing and ec_base_dir=/opt/ml/e
 make more files simplify main file 
 use logging instead of print
 move the constants to json file. 
+continous learning by making aws schedule with target execute sagemaker pipeline

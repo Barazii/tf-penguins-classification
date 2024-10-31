@@ -24,7 +24,6 @@ from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
 from sagemaker.workflow.functions import JsonGet
 from sagemaker.workflow.parameters import ParameterFloat
 from sagemaker.workflow.fail_step import FailStep
-from helpers import *
 from sagemaker.lambda_helper import Lambda
 from sagemaker.workflow.quality_check_step import QualityCheckStep, DataQualityCheckConfig, ModelQualityCheckConfig
 from sagemaker.workflow.check_job_config import CheckJobConfig
@@ -442,8 +441,8 @@ if __name__ == "__main__":
     )
     pipeline.upsert(role_arn=role)
 
-    # before starting the pipeline, set up the lambda function in the background 
-    # in another thread.
+    # set up the auto deployment lambda function in the background 
+    # in a separate thread.
     thread = threading.Thread(target=set_up_lambda_fn)
     thread.start()
 
