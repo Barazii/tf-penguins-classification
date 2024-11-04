@@ -3,8 +3,6 @@ from sagemaker.session import Session
 from constants import *
 import boto3
 import json
-import time
-import os
 
 
 def create_lambda_role_arn():
@@ -22,7 +20,10 @@ def create_lambda_role_arn():
                         {
                             "Effect": "Allow",
                             "Principal": {
-                                "Service": ["lambda.amazonaws.com", "events.amazonaws.com"]
+                                "Service": [
+                                    "lambda.amazonaws.com",
+                                    "events.amazonaws.com",
+                                ]
                             },
                             "Action": "sts:AssumeRole",
                         }
@@ -46,7 +47,9 @@ def create_lambda_role_arn():
 
     except iam_client.exceptions.EntityAlreadyExistsException:
         response = iam_client.get_role(RoleName=lambda_role_name)
-        print(f'Role "{lambda_role_name}" already exists with ARN "{response["Role"]["Arn"]}".')
+        print(
+            f'Role "{lambda_role_name}" already exists with ARN "{response["Role"]["Arn"]}".'
+        )
         return response["Role"]["Arn"]
 
 
