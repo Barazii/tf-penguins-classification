@@ -75,9 +75,11 @@ def describe_monitoring_schedule(endpoint_name, monitoring_type):
 
     if not found:
         print(f"There's no {monitoring_type} Monitoring Schedule.")
+    
+    return found
 
 def describe_data_monitoring_schedule(endpoint_name):
-    describe_monitoring_schedule(endpoint_name, "DataQuality")
+    return describe_monitoring_schedule(endpoint_name, "DataQuality")
 
 def describe_model_monitoring_schedule(endpoint_name):
     describe_monitoring_schedule(endpoint_name, "ModelQuality")
