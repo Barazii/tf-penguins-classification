@@ -37,11 +37,7 @@ def describe_monitoring_schedules(endpoint_name):
         schedule["Last Execution Status"] = last_execution_status
         schedule["Last Execution Date"] = str(description["LastMonitoringExecutionSummary"]["LastModifiedTime"])
 
-        if last_execution_status == "Failed":
-            schedule["Failure Reason"] = description["LastMonitoringExecutionSummary"][
-                "FailureReason"
-            ]
-        elif last_execution_status == "CompletedWithViolations":
+        if last_execution_status == "CompletedWithViolations":
             processing_job_arn = description["LastMonitoringExecutionSummary"][
                 "ProcessingJobArn"
             ]
