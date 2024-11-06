@@ -40,7 +40,7 @@ def output_fn(predictions, accept):
     elif accept == "application/json":
         response = []
         for p, c in predictions:
-            response.append({"prediction": p, "confidence": c})
+            response.append({"0": p, "1": c})
 
         # If there's only one prediction, we'll return it
         # as a single object.
