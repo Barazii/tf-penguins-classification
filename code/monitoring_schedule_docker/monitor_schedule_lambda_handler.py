@@ -1,32 +1,85 @@
-from constants import *
 from sagemaker.model_monitor import (
     CronExpressionGenerator,
     DefaultModelMonitor,
     EndpointInput,
 )
-from helpers.monitoring_helpers import *
 from sagemaker.model_monitor import ModelQualityMonitor
 import botocore
 import time
-import argparse
 import threading
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--endpoint", type=str, required=True, default=ENDPOINT)
-    args = parser.parse_args()
-    endpoint = args.endpoint
+ENDPOINT = "penguins-endpoint"
+instance_type = "ml.m5.xlarge"
+DATA_QUALITY_LOCATION = "s3://penguinsmlschool/monitoring/data-quality"
+GROUND_TRUTH_LOCATION = "s3://penguinsmlschool/monitoring/groundtruth"
+MODEL_QUALITY_LOCATION = "s3://penguinsmlschool/monitoring/model-quality"
+MONITORING_PREPROCESSING_SCRIPT = (
+    "s3://penguinsmlschool/monitoring/data_quality_monitoring_preprocessing.py"
+)
+role = "arn:aws:iam::482497089777:role/service-role/AmazonSageMaker-ExecutionRole-20240203T043640"
 
+
+import boto3
+import json
+from time import sleep
+from sagemaker.model_monitor import MonitoringExecution
+from sagemaker.session import Session
+from sagemaker.s3 import S3Downloader
+import os
+import time
+
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+
+def describe_monitoring_schedules(endpoint_name):
+    sagemaker_client = boto3.client("sagemaker")
+    schedules = []
+    response = sagemaker_client.list_monitoring_schedules(EndpointName=endpoint_name)[
+        "MonitoringScheduleSummaries"
+    ]
+    for item in response:
+        name = item["MonitoringScheduleName"]
+        schedule = {
+            "Name": name,
+            "Type": item["MonitoringType"],
+        }
+        schedules.append(schedule)
+    return schedules
+
+
+def describe_monitoring_schedule(endpoint_name, monitoring_type):
+    found = False
+    schedules = describe_monitoring_schedules(endpoint_name)
+    for schedule in schedules:
+        if schedule["Type"] == monitoring_type:
+            found = True
+    return found
+
+
+def describe_data_monitoring_schedule(endpoint_name):
+    return describe_monitoring_schedule(endpoint_name, "DataQuality")
+
+
+def describe_model_monitoring_schedule(endpoint_name):
+    return describe_monitoring_schedule(endpoint_name, "ModelQuality")
+
+
+def lambda_handler(event, context):
+    logger.info("This is an info log from Docker-based Lambda")
     try:
-        boto3.client("sagemaker").describe_endpoint(EndpointName=endpoint)
+        boto3.client("sagemaker").describe_endpoint(EndpointName=ENDPOINT)
     except botocore.exceptions.ClientError:
         print(f"Endpoint {ENDPOINT} wasn't found.")
     else:
         # DATA QUALITY MONITORING SCHEDULE
-        found = describe_data_monitoring_schedule(ENDPOINT)
-        if not found:
+        data_mon_found = describe_data_monitoring_schedule(ENDPOINT)
+        if not data_mon_found:
             print("Data quality monitor schedule will be created.")
+
             def create_data_monitoring_schedule():
                 data_monitor = DefaultModelMonitor(
                     instance_type=instance_type,
@@ -37,25 +90,27 @@ if __name__ == "__main__":
                 data_monitor.create_monitoring_schedule(
                     monitor_schedule_name="penguins-data-monitoring-schedule",
                     endpoint_input=ENDPOINT,
-                    record_preprocessor_script="code/data_quality_monitoring_preprocessing.py",
+                    record_preprocessor_script=f"{MONITORING_PREPROCESSING_SCRIPT}/data_quality_monitoring_preprocessing.py",
                     statistics=f"{DATA_QUALITY_LOCATION}/statistics.json",
                     constraints=f"{DATA_QUALITY_LOCATION}/constraints.json",
-                    schedule_cron_expression=CronExpressionGenerator.now(),
+                    schedule_cron_expression=CronExpressionGenerator.hourly(),
                     output_s3_uri=DATA_QUALITY_LOCATION,
                     enable_cloudwatch_metrics=True,
-                    data_analysis_start_time="-PT1H",
-                    data_analysis_end_time="-PT0H",
                 )
                 time.sleep(10)
                 data_monitor.start_monitoring_schedule()
-            threading.Thread(target=create_data_monitoring_schedule).start()
+
+            th_data_mon = threading.Thread(target=create_data_monitoring_schedule)
+            th_data_mon.start()
+
         else:
             print("There is already data quality monitor schedule")
 
         # MODEL QUALITY MONITOR SCHEDULE
-        found = describe_model_monitoring_schedule(ENDPOINT)
-        if not found:
+        model_mon_found = describe_model_monitoring_schedule(ENDPOINT)
+        if not model_mon_found:
             print("Model quality monitor schedule will be created.")
+
             def create_model_monitoring_schedule():
                 model_monitor = ModelQualityMonitor(
                     instance_type=instance_type,
@@ -86,8 +141,15 @@ if __name__ == "__main__":
                 # monitoring job before we start it.
                 time.sleep(10)
                 model_monitor.start_monitoring_schedule()
-            thread = threading.Thread(target=create_model_monitoring_schedule)
-            thread.start()
-            thread.join()
+
+            th_model_mon = threading.Thread(target=create_model_monitoring_schedule)
+            th_model_mon.start()
+
         else:
             print("There is already model quality monitor schedule")
+
+    # in case the threads are created, wait until they are done.
+    if not data_mon_found:
+        th_data_mon.join()
+    if not model_mon_found:
+        th_model_mon.join()
