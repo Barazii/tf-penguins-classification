@@ -5,7 +5,7 @@ sys.path.extend([os.path.abspath(".")])
 sys.path.extend([os.path.abspath("./code")])
 
 import pytest
-from lambda_handler import lambda_handler
+from code.auto_deploy_lambda.lambda_handler import lambda_handler
 import json
 from constants import *
 import boto3
