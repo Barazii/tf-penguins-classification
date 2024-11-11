@@ -6,7 +6,7 @@ do HP tuning
 create two directories: pc_basE_dir=/opt/ml/processing and ec_base_dir=/opt/ml/evaluation
 make more files simplify main file 
 use logging instead of print
-move the constants to json file. 
+move the constants to json file or env file. 
 continous learning by making aws schedule with target execute sagemaker pipeline.
 reduce auto deploy function. remove unnecessary things.
-make lambda function docker image for monitor schedule triggered on endpoint actvie. 
+automate building thei image and doiing all the permissions. 

@@ -1,4 +1,4 @@
-import os 
+import os
 from sagemaker.workflow.pipeline_context import PipelineSession
 from sagemaker.workflow.pipeline_definition_config import PipelineDefinitionConfig
 from sagemaker.workflow.pipeline import Pipeline
@@ -25,14 +25,21 @@ from sagemaker.workflow.functions import JsonGet
 from sagemaker.workflow.parameters import ParameterFloat
 from sagemaker.workflow.fail_step import FailStep
 from sagemaker.lambda_helper import Lambda
-from sagemaker.workflow.quality_check_step import QualityCheckStep, DataQualityCheckConfig, ModelQualityCheckConfig
+from sagemaker.workflow.quality_check_step import (
+    QualityCheckStep,
+    DataQualityCheckConfig,
+    ModelQualityCheckConfig,
+)
 from sagemaker.workflow.check_job_config import CheckJobConfig
 from sagemaker.model_monitor.dataset_format import DatasetFormat
 from sagemaker.transformer import Transformer
 from sagemaker.workflow.steps import TransformStep
 from sagemaker.drift_check_baselines import DriftCheckBaselines
 import threading
-from code.auto_deploy import set_up_lambda_fn
+from code.auto_deploy_lambda.auto_deploy import setup_auto_deploy_lambda
+from code.monitoring_schedule_lambda.monitoring_schedules import (
+    setup_monitoring_schedules_lambda,
+)
 
 
 if __name__ == "__main__":
@@ -43,9 +50,11 @@ if __name__ == "__main__":
     cache_config = CacheConfig(enable_caching=False, expire_after="5d")
 
     # transfer data to s3
-    s3_client.upload_file(Filename=CLEANED_DATA_PATH, Bucket=bucket, Key="data/data.csv")
+    s3_client.upload_file(
+        Filename=CLEANED_DATA_PATH, Bucket=bucket, Key="data/data.csv"
+    )
 
-    # set up the processing step 
+    # set up the processing step
     processor = SKLearnProcessor(
         base_job_name="data-processing-processor",
         framework_version=skl_version,
@@ -53,7 +62,7 @@ if __name__ == "__main__":
         instance_count=1,
         role=role,
         sagemaker_session=pipeline_session,
-        tags={"Key": "tagkey", "Value":"tagvalue"},
+        tags={"Key": "tagkey", "Value": "tagvalue"},
     )
     processing_step = ProcessingStep(
         name="processing-step",
@@ -61,33 +70,40 @@ if __name__ == "__main__":
         step_args=processor.run(
             code="./code/processing.py",
             arguments=[
-                "--pc_base_directory", f"{pc_base_directory}",
+                "--pc_base_directory",
+                f"{pc_base_directory}",
             ],
             inputs=[
                 ProcessingInput(
                     input_name="data",
                     source=os.path.join(s3_project_uri, "data"),
-                    destination=os.path.join(pc_base_directory, "data")
+                    destination=os.path.join(pc_base_directory, "data"),
                 )
             ],
             outputs=[
                 ProcessingOutput(
                     output_name="data-splits",
                     source=os.path.join(pc_base_directory, "transformed-data"),
-                    destination=os.path.join(s3_project_uri, "processing-step/data-splits")
+                    destination=os.path.join(
+                        s3_project_uri, "processing-step/data-splits"
+                    ),
                 ),
                 ProcessingOutput(
                     output_name="transformers",
                     source=os.path.join(pc_base_directory, "transformers"),
-                    destination=os.path.join(s3_project_uri, "processing-step/transformers")
+                    destination=os.path.join(
+                        s3_project_uri, "processing-step/transformers"
+                    ),
                 ),
                 ProcessingOutput(
                     output_name="baseline",
                     source=os.path.join(pc_base_directory, "baseline"),
-                    destination=os.path.join(s3_project_uri, "processing-step/baseline")
+                    destination=os.path.join(
+                        s3_project_uri, "processing-step/baseline"
+                    ),
                 ),
             ],
-        )
+        ),
     )
 
     # set up training step
@@ -154,23 +170,28 @@ if __name__ == "__main__":
             dependencies=["requirements.txt"],
             code=f"./code/evaluation.py",
             arguments=[
-                "--pc_base_directory", f"{pc_base_directory}",
+                "--pc_base_directory",
+                f"{pc_base_directory}",
             ],
             inputs=[
                 ProcessingInput(
                     input_name="evaluation-data",
-                    source=processing_step.properties.ProcessingOutputConfig.Outputs["baseline"].S3Output.S3Uri,
+                    source=processing_step.properties.ProcessingOutputConfig.Outputs[
+                        "baseline"
+                    ].S3Output.S3Uri,
                     destination=f"{pc_base_directory}/evaluation-data",
                 ),
                 ProcessingInput(
                     input_name="transformers",
-                    source=processing_step.properties.ProcessingOutputConfig.Outputs["transformers"].S3Output.S3Uri,
+                    source=processing_step.properties.ProcessingOutputConfig.Outputs[
+                        "transformers"
+                    ].S3Output.S3Uri,
                     destination=f"{pc_base_directory}/transformers",
                 ),
                 ProcessingInput(
                     input_name="evaluation-model",
                     source=model_assets,
-                    destination=f"{pc_base_directory}/evaluation-model"
+                    destination=f"{pc_base_directory}/evaluation-model",
                 ),
             ],
             outputs=[
@@ -179,7 +200,7 @@ if __name__ == "__main__":
                     source=f"{pc_base_directory}/evaluation-report",
                     destination=os.path.join(s3_project_uri, "evaluation-step"),
                 ),
-            ]
+            ],
         ),
         property_files=[eval_report],
         cache_config=cache_config,
@@ -190,9 +211,11 @@ if __name__ == "__main__":
     transformers_uri = Join(
         on="/",
         values=[
-            processing_step.properties.ProcessingOutputConfig.Outputs["transformers"].S3Output.S3Uri,
-            "transformers.tar.gz"
-        ]
+            processing_step.properties.ProcessingOutputConfig.Outputs[
+                "transformers"
+            ].S3Output.S3Uri,
+            "transformers.tar.gz",
+        ],
     )
     preprocessing_model = SKLearnModel(
         name="preprocessing-model",
@@ -203,9 +226,7 @@ if __name__ == "__main__":
         role=role,
     )
 
-    env = {
-        'SAGEMAKER_TFS_DEFAULT_MODEL_NAME': 'model1'
-    }
+    env = {"SAGEMAKER_TFS_DEFAULT_MODEL_NAME": "model1"}
     # 2. the model we trained
     tf_model = TensorFlowModel(
         name="trained-model",
@@ -249,11 +270,15 @@ if __name__ == "__main__":
             baseline_dataset=Join(
                 on="/",
                 values=[
-                    processing_step.properties.ProcessingOutputConfig.Outputs["baseline"].S3Output.S3Uri,
-                    "train-baseline-1.csv"
-                ]
+                    processing_step.properties.ProcessingOutputConfig.Outputs[
+                        "baseline"
+                    ].S3Output.S3Uri,
+                    "train-baseline-1.csv",
+                ],
             ),
-            dataset_format=DatasetFormat.csv(header=False, output_columns_position="END"),
+            dataset_format=DatasetFormat.csv(
+                header=False, output_columns_position="END"
+            ),
             output_s3_uri=DATA_QUALITY_LOCATION,
         ),
         model_package_group_name=MODEL_PACKAGE_GROUP_NAME,
@@ -282,15 +307,17 @@ if __name__ == "__main__":
             data=Join(
                 on="/",
                 values=[
-                    processing_step.properties.ProcessingOutputConfig.Outputs["baseline"].S3Output.S3Uri,
-                    "test-baseline.csv"
-                ]
+                    processing_step.properties.ProcessingOutputConfig.Outputs[
+                        "baseline"
+                    ].S3Output.S3Uri,
+                    "test-baseline.csv",
+                ],
             ),
             join_source="Input",
             split_type="Line",
             content_type="text/csv",
             # The first field corresponds to the groundtruth coming from the
-            # test set, and the second to last field corresponds to the 
+            # test set, and the second to last field corresponds to the
             # transform output or the model prediction.
             #
             # Here is an example of the data generated
@@ -317,11 +344,9 @@ if __name__ == "__main__":
             # the model quality baseline.
             baseline_dataset=transform_step.properties.TransformOutput.S3OutputPath,
             dataset_format=DatasetFormat.csv(header=False),
-
             # We need to specify the problem type and the fields where the prediction
             # and groundtruth are so the process knows how to interpret the results.
             problem_type="MulticlassClassification",
-            
             # Since the data doesn't have headers, SageMaker will autocreate headers for it.
             # _c0 corresponds to the first column, and _c1 corresponds to the second column.
             ground_truth_attribute="_c0",
@@ -400,7 +425,7 @@ if __name__ == "__main__":
             property_file=eval_report,
             json_path="metrics.accuracy.model_1",
         ),
-        right=accuracy_threshold
+        right=accuracy_threshold,
     )
     fail_step = FailStep(
         name="fail-step",
@@ -408,23 +433,23 @@ if __name__ == "__main__":
             on=" ",
             values=[
                 "Model's accuracy is less than accuracy threshold",
-                accuracy_threshold
-            ]
-        )
+                accuracy_threshold,
+            ],
+        ),
     )
     condition_step = ConditionStep(
         name="condition-step",
         conditions=[condition],
         if_steps=[
-            model_step, 
+            model_step,
             transform_step,
             model_quality_baseline_step,
-            registration_step
+            registration_step,
         ],
-        else_steps=[fail_step]
+        else_steps=[fail_step],
     )
 
-    # build the final pipeline 
+    # build the final pipeline
     pl_def_config = PipelineDefinitionConfig(use_custom_job_prefix=True)
     pipeline = Pipeline(
         name="penguins-classification-pipeline",
@@ -434,17 +459,21 @@ if __name__ == "__main__":
             training_step,
             eval_step,
             data_quality_baseline_step,
-            condition_step
+            condition_step,
         ],
         sagemaker_session=pipeline_session,
         pipeline_definition_config=pl_def_config,
     )
     pipeline.upsert(role_arn=role)
 
-    # set up the auto deployment lambda function in the background 
+    # set up the auto deployment lambda function in the background
     # in a separate thread.
-    thread = threading.Thread(target=set_up_lambda_fn)
-    thread.start()
+    thread_ad = threading.Thread(target=setup_auto_deploy_lambda)
+    thread_ad.start()
+
+    # set up the monitoring schedules lambda in a separate thread.
+    thread_ms = threading.Thread(target=setup_monitoring_schedules_lambda)
+    thread_ms.start()
 
     # start the pipeline
     try:
@@ -453,4 +482,8 @@ if __name__ == "__main__":
         ret.wait(delay=180)
         print("execution finished")
     except Exception as e:
-        print("Error in running the pipeline.", e)
+        print(f"Error in starting the pipeline: {e}")
+    else:
+        # in case the lambda threads aren't done yet (which is unlikely), wait for them.
+        thread_ad.join()
+        thread_ms.join()

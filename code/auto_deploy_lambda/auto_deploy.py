@@ -53,7 +53,7 @@ def create_lambda_role_arn():
         return response["Role"]["Arn"]
 
 
-def set_up_lambda_fn():
+def setup_auto_deploy_lambda():
     # set up lambda function for auto deployment after model approval.
     session = Session()
     lambda_role_arn = create_lambda_role_arn()

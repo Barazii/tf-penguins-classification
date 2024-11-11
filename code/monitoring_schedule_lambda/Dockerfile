@@ -5,6 +5,6 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 # Copy handler code
-COPY monitor_schedule_lambda_handler.py .
+COPY lambda_handler.py .
 # Define Lambda function handler
-CMD ["monitor_schedule_lambda_handler.lambda_handler"]
+CMD ["lambda_handler.lambda_handler"]
