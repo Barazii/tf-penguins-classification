@@ -8,5 +8,3 @@ make more files simplify main file
 use logging instead of print
 move the constants to json file or env file. 
 continous learning by making aws schedule with target execute sagemaker pipeline.
-reduce auto deploy function. remove unnecessary things.
-automate building thei image and doiing all the permissions. 
