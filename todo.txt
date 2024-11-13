@@ -3,8 +3,6 @@ automate testing
 use sklearn training model
 use sagemaerk built in algorithm/model
 do HP tuning
-create two directories: pc_basE_dir=/opt/ml/processing and ec_base_dir=/opt/ml/evaluation
 make more files simplify main file 
 use logging instead of print
-move the constants to json file or env file. 
 continous learning by making aws schedule with target execute sagemaker pipeline.
