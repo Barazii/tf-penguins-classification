@@ -1,9 +1,3 @@
-import logging
-
-
-logger = logging.getLogger()
-logger.setLevel("INFO")
-
 def preprocess_handler(inference_record, logger):
     input_data = inference_record.endpoint_input.data
     logger.info(f"This is data input {input_data}")
