@@ -1,19 +1,17 @@
-import sys
-import os
-
-sys.path.extend([os.path.abspath('.')])
-sys.path.extend([os.path.abspath('./code')])
-
 import pytest
 import tempfile
 from pathlib import Path
 import shutil
-from constants import *
 from processing import process
 from training import train
 from evaluation import evaluate
 import tarfile
 import json
+from dotenv import load_dotenv
+import os
+
+
+load_dotenv()
 
 
 @pytest.fixture(scope="function", autouse=False)
@@ -24,10 +22,10 @@ def directory(monkeypatch):
     pc_base_directory = Path(pc_base_directory)
     data_dir = pc_base_directory / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(CLEANED_DATA_PATH, data_dir / "data.csv")
+    shutil.copy2(os.environ["CLEANED_DATA_PATH"], data_dir / "data.csv")
 
     process(pc_base_directory)
-    
+
     # temporarily set the env variable SM_MODEL_DIR
     monkeypatch.setenv("SM_MODEL_DIR", f"{pc_base_directory}/model")
     train(
@@ -54,7 +52,9 @@ def directory(monkeypatch):
 
     transformers_dir = ec_base_directory / "transformers"
     transformers_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(pc_base_directory / "transformers", transformers_dir, dirs_exist_ok=True)
+    shutil.copytree(
+        pc_base_directory / "transformers", transformers_dir, dirs_exist_ok=True
+    )
 
     eval_report_dir = ec_base_directory / "evaluation-report"
     eval_report_dir.mkdir(parents=True, exist_ok=True)
@@ -69,9 +69,11 @@ def directory(monkeypatch):
 
 
 def test_evaluation_report_in_the_right_format(directory):
-    with open(directory / "evaluation-report" / "evaluation_report.json", "r") as eval_report_file:
+    with open(
+        directory / "evaluation-report" / "evaluation_report.json", "r"
+    ) as eval_report_file:
         eval_report = json.load(eval_report_file)
-        
+
         assert "metrics" in eval_report
         assert "accuracy" in eval_report["metrics"]
         assert "model_1" in eval_report["metrics"]["accuracy"]

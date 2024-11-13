@@ -3,9 +3,6 @@ import time
 import os
 
 
-instance_type = "ml.m5.xlarge"
-
-
 def lambda_handler(event, context):
     if "detail" in event:
         model_package_arn = event["detail"]["ModelPackageArn"]
@@ -33,7 +30,7 @@ def lambda_handler(event, context):
                 ProductionVariants=[
                     {
                         "ModelName": model_name,
-                        "InstanceType": f"{instance_type}",
+                        "InstanceType": os.environ["INSTANCE_TYPE"],
                         "InitialVariantWeight": 1,
                         "InitialInstanceCount": 1,
                         "VariantName": "AllTraffic",

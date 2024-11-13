@@ -1,14 +1,12 @@
-import sys
-import os
-
-sys.path.extend([os.path.abspath(".")])
-sys.path.extend([os.path.abspath("./code")])
-
 import pytest
 from code.auto_deploy_lambda.lambda_handler import lambda_handler
 import json
-from constants import *
+from dotenv import load_dotenv
 import boto3
+import os
+
+
+load_dotenv()
 
 
 @pytest.fixture(scope="function", autouse=False)
@@ -77,9 +75,11 @@ def test_approval_status_rejected(event):
 def test_approval_status_approved_with_existing_endpoint(event, monkeypatch):
     event["detail"]["ModelApprovalStatus"] = "Approved"
     # mock environment variables
-    monkeypatch.setenv("ENDPOINT", ENDPOINT)
-    monkeypatch.setenv("DATA_CAPTURE_DESTINATION", DATA_CAPTURE_DESTINATION)
-    monkeypatch.setenv("ROLE", role)
+    monkeypatch.setenv("ENDPOINT", os.environ["ENDPOINT"])
+    monkeypatch.setenv(
+        "DATA_CAPTURE_DESTINATION", os.environ["DATA_CAPTURE_DESTINATION"]
+    )
+    monkeypatch.setenv("ROLE", os.environ["SM_EXEC_ROLE"])
 
     # mock the boto3 client calls
     class MockSageMakerClient:

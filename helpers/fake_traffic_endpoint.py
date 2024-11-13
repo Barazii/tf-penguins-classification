@@ -2,17 +2,20 @@ from sagemaker.serializers import CSVSerializer
 from sagemaker.predictor import Predictor
 import json
 import pandas as pd
+from dotenv import load_dotenv
+import os
 
-ENDPOINT = "penguins-endpoint"
+
+load_dotenv()
 
 
 def generate_fake_traffic():
     """Generate fake traffic to the endpoint."""
     predictor = Predictor(
-        endpoint_name=ENDPOINT,
+        endpoint_name=os.environ["ENDPOINT"],
         serializer=CSVSerializer(),
     )
-    data = pd.read_csv("../data/penguins_cleaned.csv")
+    data = pd.read_csv(os.environ["CLEANED_DATA_PATH"])
     data = data.drop(columns="species", axis=1)
 
     try:

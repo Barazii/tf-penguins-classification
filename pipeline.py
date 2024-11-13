@@ -9,7 +9,6 @@ from sagemaker.sklearn.processing import SKLearnProcessor
 from sagemaker.processing import ProcessingInput, ProcessingOutput
 from sagemaker.inputs import TrainingInput
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep
-from constants import *
 from sagemaker.tensorflow import TensorFlow
 from sagemaker.tensorflow import TensorFlowProcessor
 from sagemaker.workflow.properties import PropertyFile
@@ -24,7 +23,6 @@ from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
 from sagemaker.workflow.functions import JsonGet
 from sagemaker.workflow.parameters import ParameterFloat
 from sagemaker.workflow.fail_step import FailStep
-from sagemaker.lambda_helper import Lambda
 from sagemaker.workflow.quality_check_step import (
     QualityCheckStep,
     DataQualityCheckConfig,
@@ -40,27 +38,30 @@ from code.auto_deploy_lambda.auto_deploy import setup_auto_deploy_lambda
 from code.monitoring_schedule_lambda.monitoring_schedules import (
     setup_monitoring_schedules_lambda,
 )
+from dotenv import load_dotenv
 
 
 if __name__ == "__main__":
-
-    pipeline_session = PipelineSession(default_bucket=bucket)
+    load_dotenv()
+    pipeline_session = PipelineSession(default_bucket=os.environ["BUCKET"])
     session = Session()
     s3_client = boto3.client("s3")
-    cache_config = CacheConfig(enable_caching=False, expire_after="5d")
+    cache_config = CacheConfig(enable_caching=True, expire_after="5d")
 
     # transfer data to s3
     s3_client.upload_file(
-        Filename=CLEANED_DATA_PATH, Bucket=bucket, Key="data/data.csv"
+        Filename=os.environ["CLEANED_DATA_PATH"],
+        Bucket=os.environ["BUCKET"],
+        Key="data/data.csv",
     )
 
     # set up the processing step
     processor = SKLearnProcessor(
         base_job_name="data-processing-processor",
-        framework_version=skl_version,
-        instance_type=instance_type,
+        framework_version=os.environ["SKL_VERSION"],
+        instance_type=os.environ["INSTANCE_TYPE"],
         instance_count=1,
-        role=role,
+        role=os.environ["SM_EXEC_ROLE"],
         sagemaker_session=pipeline_session,
         tags={"Key": "tagkey", "Value": "tagvalue"},
     )
@@ -71,35 +72,39 @@ if __name__ == "__main__":
             code="./code/processing.py",
             arguments=[
                 "--pc_base_directory",
-                f"{pc_base_directory}",
+                os.environ["PC_BASE_DIRECTORY"],
             ],
             inputs=[
                 ProcessingInput(
                     input_name="data",
-                    source=os.path.join(s3_project_uri, "data"),
-                    destination=os.path.join(pc_base_directory, "data"),
+                    source=os.path.join(os.environ["S3_PROJECT_URI"], "data"),
+                    destination=os.path.join(os.environ["PC_BASE_DIRECTORY"], "data"),
                 )
             ],
             outputs=[
                 ProcessingOutput(
                     output_name="data-splits",
-                    source=os.path.join(pc_base_directory, "transformed-data"),
+                    source=os.path.join(
+                        os.environ["PC_BASE_DIRECTORY"], "transformed-data"
+                    ),
                     destination=os.path.join(
-                        s3_project_uri, "processing-step/data-splits"
+                        os.environ["S3_PROJECT_URI"], "processing-step/data-splits"
                     ),
                 ),
                 ProcessingOutput(
                     output_name="transformers",
-                    source=os.path.join(pc_base_directory, "transformers"),
+                    source=os.path.join(
+                        os.environ["PC_BASE_DIRECTORY"], "transformers"
+                    ),
                     destination=os.path.join(
-                        s3_project_uri, "processing-step/transformers"
+                        os.environ["S3_PROJECT_URI"], "processing-step/transformers"
                     ),
                 ),
                 ProcessingOutput(
                     output_name="baseline",
-                    source=os.path.join(pc_base_directory, "baseline"),
+                    source=os.path.join(os.environ["PC_BASE_DIRECTORY"], "baseline"),
                     destination=os.path.join(
-                        s3_project_uri, "processing-step/baseline"
+                        os.environ["S3_PROJECT_URI"], "processing-step/baseline"
                     ),
                 ),
             ],
@@ -111,20 +116,20 @@ if __name__ == "__main__":
         base_job_name="train-model",
         entry_point=f"./code/training.py",
         hyperparameters={
-            "epochs": "20",
-            "batch_size": "32",
+            "epochs": os.environ["TRAINING_NUM_EPOCHS"],
+            "batch_size": os.environ["TRAINING_BATCH_SIZE"],
         },
         metric_definitions=[
             {"Name": "loss", "Regex": "loss: ([0-9\\.]+)"},
             {"Name": "accuracy", "Regex": "accuracy: ([0-9\\.]+)"},
         ],
-        framework_version=tf_version,
-        py_version=py_version,
-        instance_type=instance_type,
+        framework_version=os.environ["TF_VERSION"],
+        py_version=os.environ["PY_VERSION"],
+        instance_type=os.environ["INSTANCE_TYPE"],
         instance_count=1,
         disable_profiler=True,
         sagemaker_session=pipeline_session,
-        role=role,
+        role=os.environ["SM_EXEC_ROLE"],
         enable_sagemaker_metrics=True,
     )
     training_step = TrainingStep(
@@ -151,11 +156,11 @@ if __name__ == "__main__":
     # Evaluation step
     eval_processor = TensorFlowProcessor(
         base_job_name="evaluation-processor",
-        framework_version=tf_version,
-        py_version=py_version,
-        instance_type=instance_type,
+        framework_version=os.environ["TF_VERSION"],
+        py_version=os.environ["PY_VERSION"],
+        instance_type=os.environ["INSTANCE_TYPE"],
         instance_count=1,
-        role=role,
+        role=os.environ["SM_EXEC_ROLE"],
         sagemaker_session=pipeline_session,
     )
     eval_report = PropertyFile(
@@ -171,7 +176,7 @@ if __name__ == "__main__":
             code=f"./code/evaluation.py",
             arguments=[
                 "--pc_base_directory",
-                f"{pc_base_directory}",
+                os.environ["PC_BASE_DIRECTORY"],
             ],
             inputs=[
                 ProcessingInput(
@@ -179,26 +184,36 @@ if __name__ == "__main__":
                     source=processing_step.properties.ProcessingOutputConfig.Outputs[
                         "baseline"
                     ].S3Output.S3Uri,
-                    destination=f"{pc_base_directory}/evaluation-data",
+                    destination=os.path.join(
+                        os.environ["PC_BASE_DIRECTORY"], "evaluation-data"
+                    ),
                 ),
                 ProcessingInput(
                     input_name="transformers",
                     source=processing_step.properties.ProcessingOutputConfig.Outputs[
                         "transformers"
                     ].S3Output.S3Uri,
-                    destination=f"{pc_base_directory}/transformers",
+                    destination=os.path.join(
+                        os.environ["PC_BASE_DIRECTORY"], "transformers"
+                    ),
                 ),
                 ProcessingInput(
                     input_name="evaluation-model",
                     source=model_assets,
-                    destination=f"{pc_base_directory}/evaluation-model",
+                    destination=os.path.join(
+                        os.environ["PC_BASE_DIRECTORY"], "evaluation-model"
+                    ),
                 ),
             ],
             outputs=[
                 ProcessingOutput(
                     output_name="evaluation-report",
-                    source=f"{pc_base_directory}/evaluation-report",
-                    destination=os.path.join(s3_project_uri, "evaluation-step"),
+                    source=os.path.join(
+                        os.environ["PC_BASE_DIRECTORY"], "evaluation-report"
+                    ),
+                    destination=os.path.join(
+                        os.environ["S3_PROJECT_URI"], "evaluation-step"
+                    ),
                 ),
             ],
         ),
@@ -221,9 +236,9 @@ if __name__ == "__main__":
         name="preprocessing-model",
         model_data=transformers_uri,
         entry_point=f"./code/preprocessing_component.py",
-        framework_version=skl_version,
+        framework_version=os.environ["SKL_VERSION"],
         sagemaker_session=pipeline_session,
-        role=role,
+        role=os.environ["SM_EXEC_ROLE"],
     )
 
     env = {"SAGEMAKER_TFS_DEFAULT_MODEL_NAME": "model1"}
@@ -231,9 +246,9 @@ if __name__ == "__main__":
     tf_model = TensorFlowModel(
         name="trained-model",
         model_data=model_assets,
-        framework_version=tf_version,
+        framework_version=os.environ["TF_VERSION"],
         sagemaker_session=pipeline_session,
-        role=role,
+        role=os.environ["SM_EXEC_ROLE"],
         env=env,
     )
 
@@ -242,9 +257,9 @@ if __name__ == "__main__":
         name="postprocessing-model",
         model_data=transformers_uri,
         entry_point=f"./code/postprocessing_component.py",
-        framework_version=skl_version,
+        framework_version=os.environ["SKL_VERSION"],
         sagemaker_session=pipeline_session,
-        role=role,
+        role=os.environ["SM_EXEC_ROLE"],
     )
 
     # build the inference pipeline
@@ -252,7 +267,7 @@ if __name__ == "__main__":
         name="inference-model",
         models=[preprocessing_model, tf_model, postprocessing_model],
         sagemaker_session=pipeline_session,
-        role=role,
+        role=os.environ["SM_EXEC_ROLE"],
     )
 
     # set up quality baselines for model and data
@@ -260,11 +275,11 @@ if __name__ == "__main__":
     data_quality_baseline_step = QualityCheckStep(
         name="generate-data-quality-baseline",
         check_job_config=CheckJobConfig(
-            instance_type="ml.c5.xlarge",
+            instance_type=os.environ["Q_CHECK_INSTANCE_TYPE"],
             instance_count=1,
             volume_size_in_gb=20,
             sagemaker_session=pipeline_session,
-            role=role,
+            role=os.environ["SM_EXEC_ROLE"],
         ),
         quality_check_config=DataQualityCheckConfig(
             baseline_dataset=Join(
@@ -279,9 +294,9 @@ if __name__ == "__main__":
             dataset_format=DatasetFormat.csv(
                 header=False, output_columns_position="END"
             ),
-            output_s3_uri=DATA_QUALITY_LOCATION,
+            output_s3_uri=os.environ["DATA_QUALITY_LOCATION"],
         ),
-        model_package_group_name=MODEL_PACKAGE_GROUP_NAME,
+        model_package_group_name=os.environ["MODEL_PACKAGE_GROUP_NAME"],
         skip_check=True,
         register_new_baseline=True,
         cache_config=cache_config,
@@ -289,16 +304,16 @@ if __name__ == "__main__":
     # Model quality baseline
     model_step = ModelStep(
         name="create-model",
-        step_args=inference_model.create(instance_type=instance_type),
+        step_args=inference_model.create(instance_type=os.environ["INSTANCE_TYPE"]),
     )
     transformer = Transformer(
         model_name=model_step.properties.ModelName,
-        instance_type=instance_type,
+        instance_type=os.environ["INSTANCE_TYPE"],
         instance_count=1,
         strategy="MultiRecord",
         accept="text/csv",
         assemble_with="Line",
-        output_path=TRANSFORM_LOCATION,
+        output_path=os.environ["TRANSFORM_LOCATION"],
         sagemaker_session=pipeline_session,
     )
     transform_step = TransformStep(
@@ -333,11 +348,11 @@ if __name__ == "__main__":
     model_quality_baseline_step = QualityCheckStep(
         name="generate-model-quality-baseline",
         check_job_config=CheckJobConfig(
-            instance_type="ml.c5.xlarge",
+            instance_type=os.environ["Q_CHECK_INSTANCE_TYPE"],
             instance_count=1,
             volume_size_in_gb=20,
             sagemaker_session=pipeline_session,
-            role=role,
+            role=os.environ["SM_EXEC_ROLE"],
         ),
         quality_check_config=ModelQualityCheckConfig(
             # We are going to use the output of the Transform Step to generate
@@ -351,9 +366,9 @@ if __name__ == "__main__":
             # _c0 corresponds to the first column, and _c1 corresponds to the second column.
             ground_truth_attribute="_c0",
             inference_attribute="_c1",
-            output_s3_uri=MODEL_QUALITY_LOCATION,
+            output_s3_uri=os.environ["MODEL_QUALITY_LOCATION"],
         ),
-        model_package_group_name=MODEL_PACKAGE_GROUP_NAME,
+        model_package_group_name=os.environ["MODEL_PACKAGE_GROUP_NAME"],
         skip_check=True,
         register_new_baseline=True,
         cache_config=cache_config,
@@ -401,18 +416,18 @@ if __name__ == "__main__":
         name="registration-step",
         display_name="registration-step",
         step_args=inference_model.register(
-            model_package_group_name=MODEL_PACKAGE_GROUP_NAME,
+            model_package_group_name=os.environ["MODEL_PACKAGE_GROUP_NAME"],
             model_metrics=model_metrics,
             drift_check_baselines=drift_check_baselines,
             approval_status="PendingManualApproval",
             content_types=["text/csv", "application/json"],
             response_types=["text/csv", "application/json"],
-            inference_instances=[instance_type],
-            transform_instances=[instance_type],
+            inference_instances=[os.environ["INSTANCE_TYPE"]],
+            transform_instances=[os.environ["INSTANCE_TYPE"]],
             domain="MACHINE_LEARNING",
             task="CLASSIFICATION",
             framework="TENSORFLOW",
-            framework_version=tf_version,
+            framework_version=os.environ["TF_VERSION"],
             description="commit message here",
         ),
     )
@@ -464,7 +479,7 @@ if __name__ == "__main__":
         sagemaker_session=pipeline_session,
         pipeline_definition_config=pl_def_config,
     )
-    pipeline.upsert(role_arn=role)
+    pipeline.upsert(role_arn=os.environ["SM_EXEC_ROLE"])
 
     # set up the auto deployment lambda function in the background
     # in a separate thread.

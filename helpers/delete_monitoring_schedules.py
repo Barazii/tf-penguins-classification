@@ -1,7 +1,9 @@
-from helpers.monitoring_helpers import delete_data_monitoring_schedule, delete_model_monitoring_schedule
-from constants import ENDPOINT
+from monitoring_helpers import delete_data_monitoring_schedule, delete_model_monitoring_schedule
+from dotenv import load_dotenv
+import os
 
 
 if __name__ == "__main__":
-    delete_data_monitoring_schedule(ENDPOINT)
-    delete_model_monitoring_schedule(ENDPOINT)
+    load_dotenv()
+    delete_data_monitoring_schedule(os.environ["ENDPOINT"])
+    delete_model_monitoring_schedule(os.environ["ENDPOINT"])

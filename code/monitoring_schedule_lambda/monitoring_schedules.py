@@ -1,6 +1,8 @@
 import subprocess
 import boto3
 import json
+import os
+import time
 
 
 def create_lambda_execution_role():
@@ -68,7 +70,7 @@ def setup_monitoring_schedules_lambda():
         raise Exception(f"Error in login {res.stderr}")
 
     # build docker image
-    build_cmd = "docker build -t ms-lambda-image ."
+    build_cmd = "docker build -t ms-lambda-image ./code/monitoring_schedule_lambda"
     res = subprocess.run(build_cmd, shell=True, stderr=subprocess.STDOUT, text=True)
     if res.returncode != 0:
         raise Exception(f"Error in building docker image {res.stderr}")
@@ -100,6 +102,14 @@ def setup_monitoring_schedules_lambda():
     if res.returncode != 0:
         raise Exception(f"Error in pushing image to repository {res.stderr}")
 
+    # load script
+    s3_client = boto3.client("s3")
+    s3_client.upload_file(
+        Filename="/home/mahmood/ml-penguins-classification/code/data_quality_monitoring_preprocessing.py",
+        Bucket=os.environ["BUCKET"],
+        Key="monitoring/data_quality_monitoring_preprocessing.py",
+    )
+
     # create lambda function
     role = create_lambda_execution_role()
     lambda_client = boto3.client("lambda")
@@ -115,7 +125,19 @@ def setup_monitoring_schedules_lambda():
             Timeout=600,
             MemorySize=512,
             PackageType="Image",
-            # Environment={"Variables": {"string": "string"}},
+            Environment={
+                "Variables": {
+                    "ENDPOINT": os.environ["ENDPOINT"],
+                    "INSTANCE_TYPE": os.environ["INSTANCE_TYPE"],
+                    "DATA_QUALITY_LOCATION": os.environ["DATA_QUALITY_LOCATION"],
+                    "GROUND_TRUTH_LOCATION": os.environ["GROUND_TRUTH_LOCATION"],
+                    "MODEL_QUALITY_LOCATION": os.environ["MODEL_QUALITY_LOCATION"],
+                    "MONITORING_PREPROCESSING_SCRIPT": os.environ[
+                        "MONITORING_PREPROCESSING_SCRIPT"
+                    ],
+                    "SM_EXEC_ROLE": os.environ["SM_EXEC_ROLE"],
+                }
+            },
             Architectures=["x86_64"],
             EphemeralStorage={"Size": 512},
             LoggingConfig={
@@ -129,7 +151,24 @@ def setup_monitoring_schedules_lambda():
             FunctionName="ms",
             ImageUri=image_uri,
         )
-        print(f'Function {lambda_response["FunctionName"]} already exists.')
+        time.sleep(60)
+        lambda_response = lambda_client.update_function_configuration(
+            FunctionName="ms",
+            Environment={
+                "Variables": {
+                    "ENDPOINT": os.environ["ENDPOINT"],
+                    "INSTANCE_TYPE": os.environ["INSTANCE_TYPE"],
+                    "DATA_QUALITY_LOCATION": os.environ["DATA_QUALITY_LOCATION"],
+                    "GROUND_TRUTH_LOCATION": os.environ["GROUND_TRUTH_LOCATION"],
+                    "MODEL_QUALITY_LOCATION": os.environ["MODEL_QUALITY_LOCATION"],
+                    "MONITORING_PREPROCESSING_SCRIPT": os.environ[
+                        "MONITORING_PREPROCESSING_SCRIPT"
+                    ],
+                    "SM_EXEC_ROLE": os.environ["SM_EXEC_ROLE"],
+                }
+            },
+        )
+        print(f'Function {lambda_response["FunctionName"]} already exists. Updated.')
 
     # event pattern
     event_pattern = """

@@ -1,39 +1,36 @@
-import sys
 import os
-
-sys.path.extend([os.path.abspath('.')])
-sys.path.extend([os.path.abspath('./code')])
-
-import os
+from dotenv import load_dotenv
 import shutil
 import tarfile
 import pytest
 import tempfile
 import pandas as pd
-from constants import *
 from pathlib import Path
 from processing import process
+
+
+load_dotenv()
 
 
 @pytest.fixture(scope="function", autouse=False)
 def directory():
     directory = tempfile.mkdtemp()
-    data_directory = Path(directory) / "data" 
+    data_directory = Path(directory) / "data"
     data_directory.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(CLEANED_DATA_PATH, data_directory / "data.csv")
-    
+    shutil.copy2(os.environ["CLEANED_DATA_PATH"], data_directory / "data.csv")
+
     directory = Path(directory)
 
     process(directory)
 
     yield directory
-    
+
     shutil.rmtree(directory)
 
 
 def test_preprocess_generates_transformed_data(directory):
     output_directories = os.listdir(directory)
-    
+
     assert "transformed-data" in output_directories
     assert "t_train_data_1.csv" in os.listdir(directory / "transformed-data")
     assert "t_train_data_2.csv" in os.listdir(directory / "transformed-data")
@@ -41,7 +38,6 @@ def test_preprocess_generates_transformed_data(directory):
     assert "t_validation_data_1.csv" in os.listdir(directory / "transformed-data")
     assert "t_validation_data_2.csv" in os.listdir(directory / "transformed-data")
     assert "t_validation_data_3.csv" in os.listdir(directory / "transformed-data")
-
 
 
 def test_preprocess_generates_baselines(directory):
@@ -58,17 +54,21 @@ def test_preprocess_generates_baselines(directory):
 
 def test_preprocess_creates_data_transformers(directory):
     path = directory / "transformers"
-    tar = tarfile.open(path / 'transformers.tar.gz', "r:gz")
+    tar = tarfile.open(path / "transformers.tar.gz", "r:gz")
     assert "transformers_1.joblib" in tar.getnames()
     assert "transformers_2.joblib" in tar.getnames()
     assert "transformers_3.joblib" in tar.getnames()
 
 
 def test_splits_are_transformed(directory):
-    train_data = pd.read_csv(directory / "transformed-data" / "t_train_data_1.csv", header=None)
-    validation_data = pd.read_csv(directory / "transformed-data" / "t_validation_data_3.csv", header=None)
+    train_data = pd.read_csv(
+        directory / "transformed-data" / "t_train_data_1.csv", header=None
+    )
+    validation_data = pd.read_csv(
+        directory / "transformed-data" / "t_validation_data_3.csv", header=None
+    )
 
-    # After transforming the data, the number of columns should be 
+    # After transforming the data, the number of columns should be
     # 12 for X data and y:
     # * 3 - island (one-hot encoded)
     # * 3 - species (one-hot encoded)
@@ -98,7 +98,9 @@ def test_baseline_data_is_not_transformed(directory):
     assert "Torgersen" in island
     assert "Dream" in island
 
-    baseline = pd.read_csv(directory / "baseline" / "validation-baseline-2.csv", header=None)
+    baseline = pd.read_csv(
+        directory / "baseline" / "validation-baseline-2.csv", header=None
+    )
 
     island = baseline.iloc[:, 0].unique()
     assert "Biscoe" in island

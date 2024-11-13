@@ -1,8 +1,8 @@
 from sagemaker.lambda_helper import Lambda
 from sagemaker.session import Session
-from constants import *
 import boto3
 import json
+import os
 
 
 def create_lambda_role_arn():
@@ -60,16 +60,17 @@ def setup_auto_deploy_lambda():
     deploy_lambda_fn = Lambda(
         function_name="auto_deploy",
         execution_role_arn=lambda_role_arn,
-        script="code/lambda_handler.py",
+        script="code/auto_deploy_lambda/lambda_handler.py",
         handler="lambda_handler.lambda_handler",
         timeout=600,
         session=session,
         runtime="python3.11",
         environment={
             "Variables": {
-                "ENDPOINT": ENDPOINT,
-                "DATA_CAPTURE_DESTINATION": DATA_CAPTURE_DESTINATION,
-                "ROLE": role,
+                "ENDPOINT": os.environ["ENDPOINT"],
+                "DATA_CAPTURE_DESTINATION": os.environ["DATA_CAPTURE_DESTINATION"],
+                "ROLE": os.environ["SM_EXEC_ROLE"],
+                "INSTANCE_TYPE": os.environ["INSTANCE_TYPE"],
             }
         },
     )
@@ -81,7 +82,7 @@ def setup_auto_deploy_lambda():
     "source": ["aws.sagemaker"],
     "detail-type": ["SageMaker Model Package State Change"],
     "detail": {{
-        "ModelPackageGroupName": ["{MODEL_PACKAGE_GROUP_NAME}"],
+        "ModelPackageGroupName": ["{os.environ["MODEL_PACKAGE_GROUP_NAME"]}"],
         "ModelApprovalStatus": ["Approved"]
     }}
     }}
@@ -91,7 +92,7 @@ def setup_auto_deploy_lambda():
         Name="PipelineModelApprovedRule",
         EventPattern=event_pattern,
         State="ENABLED",
-        RoleArn=role,
+        RoleArn=os.environ["SM_EXEC_ROLE"],
     )
     events_client.put_targets(
         Rule="PipelineModelApprovedRule",

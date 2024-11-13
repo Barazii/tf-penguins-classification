@@ -3,11 +3,13 @@ from datetime import datetime, timezone
 import pandas as pd
 from sagemaker.s3 import S3Uploader
 import json
+from dotenv import load_dotenv
+import os
 
 
 records = []
-GROUND_TRUTH_LOCATION = "s3://penguinsmlschool/monitoring/groundtruth"
-data = pd.read_csv("../data/penguins_cleaned.csv")
+load_dotenv()
+data = pd.read_csv(os.environ["CLEANED_DATA_PATH"])
 for inference_id in range(len(data)):
     random.seed(inference_id)
 
@@ -32,5 +34,5 @@ for inference_id in range(len(data)):
 
 groundtruth_payload = "\n".join(records)
 upload_time = datetime.now(tz=timezone.utc)
-uri = f"{GROUND_TRUTH_LOCATION}/{upload_time:%Y/%m/%d/%H/%M%S}.jsonl"
+uri = f"{os.environ["GROUND_TRUTH_LOCATION"]}/{upload_time:%Y/%m/%d/%H/%M%S}.jsonl"
 S3Uploader.upload_string_as_file_body(groundtruth_payload, uri)
