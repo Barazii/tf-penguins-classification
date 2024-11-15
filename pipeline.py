@@ -39,6 +39,9 @@ from code.monitoring_schedule_lambda.monitoring_schedules import (
     setup_monitoring_schedules_lambda,
 )
 from dotenv import load_dotenv
+from sagemaker.parameter import IntegerParameter
+from sagemaker.tuner import HyperparameterTuner
+from sagemaker.workflow.steps import TuningStep
 
 
 if __name__ == "__main__":
@@ -46,7 +49,7 @@ if __name__ == "__main__":
     pipeline_session = PipelineSession(default_bucket=os.environ["BUCKET"])
     session = Session()
     s3_client = boto3.client("s3")
-    cache_config = CacheConfig(enable_caching=True, expire_after="5d")
+    cache_config = CacheConfig(enable_caching=False, expire_after="5d")
 
     # transfer data to s3
     s3_client.upload_file(
@@ -132,9 +135,22 @@ if __name__ == "__main__":
         role=os.environ["SM_EXEC_ROLE"],
         enable_sagemaker_metrics=True,
     )
-    training_step = TrainingStep(
-        name="training-step",
-        step_args=tf_estimator.fit(
+    tuner = HyperparameterTuner(
+        tf_estimator,
+        objective_metric_name="val_accuracy",
+        objective_type="Maximize",
+        hyperparameter_ranges={
+            "epochs": IntegerParameter(10, 50),
+        },
+        metric_definitions=[
+            {"Name": "val_accuracy", "Regex": "val_accuracy: ([0-9\\.]+)"}
+        ],
+        max_jobs=3,
+        max_parallel_jobs=3,
+    )
+    tuning_step = TuningStep(
+        name="tuning-step",
+        step_args=tuner.fit(
             inputs={
                 "train": TrainingInput(
                     s3_data=processing_step.properties.ProcessingOutputConfig.Outputs[
@@ -168,7 +184,9 @@ if __name__ == "__main__":
         output_name="evaluation-report",
         path="evaluation_report.json",
     )
-    model_assets = training_step.properties.ModelArtifacts.S3ModelArtifacts
+    model_assets = tuning_step.get_top_model_s3_uri(
+        top_k=0, s3_bucket=os.environ["BUCKET"]
+    )
     eval_step = ProcessingStep(
         name="evaluation-step",
         step_args=eval_processor.run(
@@ -471,7 +489,7 @@ if __name__ == "__main__":
         parameters=[accuracy_threshold],
         steps=[
             processing_step,
-            training_step,
+            tuning_step,
             eval_step,
             data_quality_baseline_step,
             condition_step,

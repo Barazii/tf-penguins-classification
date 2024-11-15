@@ -1,8 +1,7 @@
 try TrainingCompilerConfig
-automate testing
+automate testing in github on push commit. 
 use sklearn training model
 use sagemaerk built in algorithm/model
-do HP tuning
-make more files simplify main file 
 use logging instead of print
 continous learning by making aws schedule with target execute sagemaker pipeline.
+see more AWS services.
