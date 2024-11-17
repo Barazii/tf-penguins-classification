@@ -25,6 +25,10 @@ jobs:
     - name: Set environment variables
       run: |
         echo "CLEANED_DATA_PATH=data/penguins_cleaned.csv" >> $GITHUB_ENV
+        echo "ENDPOINT=xyz" >> $GITHUB_ENV
+        echo "DATA_CAPTURE_DESTINATION=xyz" >> $GITHUB_ENV
+        echo "ROLE=xyz" >> $GITHUB_ENV
+        echo "INSTANCE_TYPE=xyz" >> $GITHUB_ENV
 
     - name: Run tests
       run: |
