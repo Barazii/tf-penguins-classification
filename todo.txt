@@ -1,7 +1,3 @@
-try TrainingCompilerConfig
 automate testing in github on push commit. 
-use sklearn training model
-use sagemaerk built in algorithm/model
-use logging instead of print
 continous learning by making aws schedule with target execute sagemaker pipeline.
 see more AWS services.
