@@ -3,6 +3,10 @@ import boto3
 import json
 import os
 import time
+import logging
+
+
+logger = logging.getLogger("monitoring_schedule")
 
 
 def create_lambda_execution_role():
@@ -51,7 +55,7 @@ def create_lambda_execution_role():
 
     except iam_client.exceptions.EntityAlreadyExistsException:
         response = iam_client.get_role(RoleName=lambda_role_name)
-        print(
+        logger.warning(
             f'Role "{lambda_role_name}" already exists with ARN "{response["Role"]["Arn"]}".'
         )
         return response["Role"]["Arn"]
@@ -168,7 +172,9 @@ def setup_monitoring_schedules_lambda():
                 }
             },
         )
-        print(f'Function {lambda_response["FunctionName"]} already exists. Updated.')
+        logger.warning(
+            f'Function {lambda_response["FunctionName"]} already exists. Updated.'
+        )
 
     # event pattern
     event_pattern = """
@@ -217,7 +223,9 @@ def setup_monitoring_schedules_lambda():
             StatementId="EventBridge",
         )
     except lambda_client.exceptions.ResourceConflictException:
-        print(f'Function "{lambda_response["FunctionName"]}" is already invokeable.')
+        logger.warning(
+            f'Function "{lambda_response["FunctionName"]}" is already invokeable.'
+        )
 
 
 if __name__ == "__main__":

@@ -3,6 +3,10 @@ from sagemaker.session import Session
 import boto3
 import json
 import os
+import logging
+
+
+logger = logging.getLogger("auto_deploy")
 
 
 def create_lambda_role_arn():
@@ -47,7 +51,7 @@ def create_lambda_role_arn():
 
     except iam_client.exceptions.EntityAlreadyExistsException:
         response = iam_client.get_role(RoleName=lambda_role_name)
-        print(
+        logger.warning(
             f'Role "{lambda_role_name}" already exists with ARN "{response["Role"]["Arn"]}".'
         )
         return response["Role"]["Arn"]
@@ -75,6 +79,7 @@ def setup_auto_deploy_lambda():
         },
     )
     lambda_response = deploy_lambda_fn.upsert()
+    logger.info(f'Lambda function "{lambda_response["FunctionName"]}" is created.')
 
     # set up the event bridge of the lambda function
     event_pattern = f"""
@@ -113,4 +118,4 @@ def setup_auto_deploy_lambda():
             StatementId="EventBridge",
         )
     except lambda_client.exceptions.ResourceConflictException as e:
-        print(f'Function "{lambda_response["FunctionName"]}" already has permissions.')
+        logger.warning(f'Function "{lambda_response["FunctionName"]}" already has permissions.')

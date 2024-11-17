@@ -9,7 +9,10 @@ import json
 import joblib
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.preprocessing import OneHotEncoder
+import logging
 
+
+logger = logging.getLogger("evaluation")
 FEATURE_COLUMNS = [
     "island",
     "culmen_length_mm",
@@ -17,10 +20,12 @@ FEATURE_COLUMNS = [
     "flipper_length_mm",
     "body_mass_g",
     "sex",
-    "species"
+    "species",
 ]
 
+
 def evaluate(pc_base_directory):
+    logger.info("Evaluation script is executing.")
     transformers_dir = pc_base_directory / "transformers"
     with tarfile.open(transformers_dir / "transformers.tar.gz") as tar_file:
         tar_file.extractall(path=transformers_dir)
@@ -44,7 +49,11 @@ def evaluate(pc_base_directory):
 
     target_transformer = ColumnTransformer(
         transformers=[
-            ("categorical_tf", OneHotEncoder(), make_column_selector(dtype_include=object))
+            (
+                "categorical_tf",
+                OneHotEncoder(),
+                make_column_selector(dtype_include=object),
+            )
         ],
     )
     y_eval = target_transformer.fit_transform(pd.DataFrame(eval_data.species))
@@ -64,9 +73,8 @@ def evaluate(pc_base_directory):
             "accuracy": {
                 "model_1": accuracy_1,
                 "model_2": accuracy_2,
-                "model_3": accuracy_3
+                "model_3": accuracy_3,
             }
-
         }
     }
 
@@ -75,9 +83,13 @@ def evaluate(pc_base_directory):
     with open(eval_report_dir / "evaluation_report.json", "w") as eval_report_file:
         eval_report_file.write(json.dumps(evaluation_report))
 
+    logger.info("Evaluation script finished.")
+
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("--pc_base_directory", type=str, required=True)
     args = arg_parser.parse_args()
-    evaluate(Path(args.pc_base_directory),)
+    evaluate(
+        Path(args.pc_base_directory),
+    )

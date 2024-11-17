@@ -4,15 +4,19 @@ try:
     from sagemaker_containers.beta.framework import encoders, worker
 except ImportError:
     worker = None
+import logging
 
 TARGET_CATEGORIES = ['Adelie', 'Chinstrap', 'Gentoo']
+logger = logging.getLogger("postprocessing_component")
 
 
 def model_fn(arg=None):
+    logger.info("Function model_fn called.")
     target_categories = TARGET_CATEGORIES
     return target_categories
 
 def input_fn(model_output_probabilities, content_type):
+    logger.info("Function input_fn called.")
     if model_output_probabilities == None or len(model_output_probabilities) == 0:
         raise ValueError("No predictions/probabilities received from the model.")
     if content_type == "application/json":
@@ -22,6 +26,7 @@ def input_fn(model_output_probabilities, content_type):
     raise ValueError(f"{content_type} is not supported.")
 
 def predict_fn(probabilities, target_categories):
+    logger.info("Function predict_fn called.")
     target_predictions = np.argmax(probabilities, axis=-1)
     confidence = np.max(probabilities, axis=-1)
     return [
@@ -30,6 +35,7 @@ def predict_fn(probabilities, target_categories):
     ]
 
 def output_fn(predictions, accept):
+    logger.info("Function output_fn called.")
     if accept == "text/csv":
         return (
             worker.Response(encoders.encode(predictions, accept), mimetype=accept)

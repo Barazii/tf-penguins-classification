@@ -10,6 +10,10 @@ import threading
 import boto3
 import os
 import time
+import logging
+
+
+logger = logging.getLogger("monitoring_schedule.lambda_handler")
 
 
 def describe_monitoring_schedules(endpoint_name):
@@ -46,16 +50,18 @@ def describe_model_monitoring_schedule(endpoint_name):
 
 
 def lambda_handler(event, context):
+    logger.info("Event of endpoint state change is received.")
     try:
         boto3.client("sagemaker").describe_endpoint(EndpointName=os.environ["ENDPOINT"])
-    except botocore.exceptions.ClientError:
+    except botocore.exceptions.ClientError as e:
         ep = os.environ["ENDPOINT"]
-        print(f"Endpoint {ep} wasn't found.")
+        logger.error(f"Endpoint {ep} wasn't found.")
+        raise e
     else:
         # DATA QUALITY MONITORING SCHEDULE
         data_mon_found = describe_data_monitoring_schedule(os.environ["ENDPOINT"])
         if not data_mon_found:
-            print("Data quality monitor schedule will be created.")
+            logger.info("Data quality monitor schedule will be created.")
 
             def create_data_monitoring_schedule():
                 data_monitor = DefaultModelMonitor(
@@ -67,9 +73,16 @@ def lambda_handler(event, context):
                 data_monitor.create_monitoring_schedule(
                     monitor_schedule_name="penguins-data-monitoring-schedule",
                     endpoint_input=os.environ["ENDPOINT"],
-                    record_preprocessor_script=os.path.join(os.environ["MONITORING_PREPROCESSING_SCRIPT"], "data_quality_monitoring_preprocessing.py"),
-                    statistics=os.path.join(os.environ["DATA_QUALITY_LOCATION"], "statistics.json"),
-                    constraints=os.path.join(os.environ["DATA_QUALITY_LOCATION"], "constraints.json"),
+                    record_preprocessor_script=os.path.join(
+                        os.environ["MONITORING_PREPROCESSING_SCRIPT"],
+                        "data_quality_monitoring_preprocessing.py",
+                    ),
+                    statistics=os.path.join(
+                        os.environ["DATA_QUALITY_LOCATION"], "statistics.json"
+                    ),
+                    constraints=os.path.join(
+                        os.environ["DATA_QUALITY_LOCATION"], "constraints.json"
+                    ),
                     schedule_cron_expression=CronExpressionGenerator.hourly(),
                     output_s3_uri=os.environ["DATA_QUALITY_LOCATION"],
                     enable_cloudwatch_metrics=True,
@@ -81,12 +94,12 @@ def lambda_handler(event, context):
             th_data_mon.start()
 
         else:
-            print("There is already data quality monitor schedule")
+            logger.info("There is already data quality monitor schedule")
 
         # MODEL QUALITY MONITOR SCHEDULE
         model_mon_found = describe_model_monitoring_schedule(os.environ["ENDPOINT"])
         if not model_mon_found:
-            print("Model quality monitor schedule will be created.")
+            logger.info("Model quality monitor schedule will be created.")
 
             def create_model_monitoring_schedule():
                 model_monitor = ModelQualityMonitor(
@@ -109,7 +122,9 @@ def lambda_handler(event, context):
                     ),
                     problem_type="MulticlassClassification",
                     ground_truth_input=os.environ["GROUND_TRUTH_LOCATION"],
-                    constraints=os.path.join(os.environ["MODEL_QUALITY_LOCATION"], "constraints.json"),
+                    constraints=os.path.join(
+                        os.environ["MODEL_QUALITY_LOCATION"], "constraints.json"
+                    ),
                     schedule_cron_expression=CronExpressionGenerator.hourly(),
                     output_s3_uri=os.environ["MODEL_QUALITY_LOCATION"],
                     enable_cloudwatch_metrics=True,
@@ -123,7 +138,7 @@ def lambda_handler(event, context):
             th_model_mon.start()
 
         else:
-            print("There is already model quality monitor schedule")
+            logger.info("There is already model quality monitor schedule")
 
     # in case the threads are created, wait until they are done.
     if not data_mon_found:

@@ -1,6 +1,10 @@
 import boto3
 import time
 import os
+import logging
+
+
+logger = logging.getLogger("auto_deploy.lambda_handler")
 
 
 def lambda_handler(event, context):
@@ -9,6 +13,7 @@ def lambda_handler(event, context):
         approval_status = event["detail"]["ModelApprovalStatus"]
 
         if approval_status == "Approved":
+            logger.info("Event with approval status 'Approved' is received.")
             endpoint_name = os.environ["ENDPOINT"]
             data_capture_destination = os.environ["DATA_CAPTURE_DESTINATION"]
             role = os.environ["ROLE"]

@@ -3,6 +3,7 @@ import pandas as pd
 from io import StringIO
 import json
 from pathlib import Path
+import logging
 
 try:
     from sagemaker_containers.beta.framework import encoders, worker
@@ -17,13 +18,16 @@ FEATURE_COLUMNS = [
     "body_mass_g",
     "sex",
 ]
+logger = logging.getLogger("preprocessing_component")
 
 
 def model_fn(transformer_dir):
+    logger.info("Function model_fn called.")
     transformer_dir = Path(transformer_dir)
     return joblib.load(transformer_dir / "transformers_1.joblib")
 
 def input_fn(input_content, input_content_type):
+    logger.info("Function input_fn called.")
     if input_content == None:
         raise ValueError("No input data received.")
     if input_content_type == "text/csv":
@@ -44,6 +48,7 @@ def input_fn(input_content, input_content_type):
         raise ValueError(f"Content type {input_content_type} is not supported.")
 
 def predict_fn(input_data, transformer):
+    logger.info("Function predict_fn called.")
     try:
         transformed_input = transformer.transform(input_data)
         return transformed_input
@@ -51,6 +56,7 @@ def predict_fn(input_data, transformer):
         raise Exception("Error transforming the input data.")
     
 def output_fn(transformed_input, accept):
+    logger.info("Function output_fn called.")
     output = {"instances": transformed_input.tolist()}
 
     try:

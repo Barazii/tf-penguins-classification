@@ -8,8 +8,14 @@ from keras.layers import Dense
 from keras.optimizers import SGD
 from keras import Input
 from sklearn.metrics import accuracy_score
+import logging
+
+
+logger = logging.getLogger("training")
+
 
 def train(train_data_dir, valid_data_dir, hp_epochs=20, hp_batch_size=32):
+    logger.info("Training script is executing.")
     # read the processed/transformed data
     train_data_1 = pd.read_csv(train_data_dir / "t_train_data_1.csv", header=None)
     train_data_2 = pd.read_csv(train_data_dir / "t_train_data_2.csv", header=None)
@@ -72,6 +78,8 @@ def train(train_data_dir, valid_data_dir, hp_epochs=20, hp_batch_size=32):
         # handling multiple models. 
         model_dir = os.environ["SM_MODEL_DIR"]
         model.save(Path(model_dir) / f"model{i+1}" / f"00{i+1}")
+
+    logger.info("Training script finished.")
 
 
 if __name__ == "__main__":

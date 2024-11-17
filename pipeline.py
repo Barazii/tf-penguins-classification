@@ -42,6 +42,10 @@ from dotenv import load_dotenv
 from sagemaker.parameter import IntegerParameter
 from sagemaker.tuner import HyperparameterTuner
 from sagemaker.workflow.steps import TuningStep
+import logging
+
+
+logger = logging.getLogger("main")
 
 
 if __name__ == "__main__":
@@ -57,6 +61,7 @@ if __name__ == "__main__":
         Bucket=os.environ["BUCKET"],
         Key="data/data.csv",
     )
+    logger.info("The cleaned data is uploaded to s3 bucket.")
 
     # set up the processing step
     processor = SKLearnProcessor(
@@ -511,11 +516,13 @@ if __name__ == "__main__":
     # start the pipeline
     try:
         ret = pipeline.start()
-        print("waiting for pipeline execution...")
+        logger.info("The pipeline started...")
         ret.wait(delay=180)
-        print("execution finished")
-    except Exception as e:
-        print(f"Error in starting the pipeline: {e}")
+        logger.info("The pipeline execution finished")
+    except Exception:
+        logger.error("Error in the pipeline execution.", exc_info=True)
+    except KeyboardInterrupt:
+        logger.info("Pipeline execution terminated.")
     else:
         # in case the lambda threads aren't done yet (which is unlikely), wait for them.
         thread_ad.join()
