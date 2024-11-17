@@ -17,7 +17,6 @@ from keras import models
 import numpy as np
 import pandas as pd
 import json
-import tarfile
 
 
 load_dotenv()
@@ -116,9 +115,9 @@ def test_output_fn_json_accept_multiple_predictions():
     accept = "application/json"
     predictions = [("Adelie", 0.1), ("Chinstrap", 0.2), ("Gentoo", 0.3)]
     ret = output_fn(predictions, accept)
-    assert ret[0][0] == {"prediction": "Adelie", "confidence": 0.1}
-    assert ret[0][1] == {"prediction": "Chinstrap", "confidence": 0.2}
-    assert ret[0][2] == {"prediction": "Gentoo", "confidence": 0.3}
+    assert ret[0][0] == {"0": "Adelie", "1": 0.1}
+    assert ret[0][1] == {"0": "Chinstrap", "1": 0.2}
+    assert ret[0][2] == {"0": "Gentoo", "1": 0.3}
     assert ret[1] == accept
 
 
@@ -126,5 +125,5 @@ def test_output_fn_json_accept_single_predictions():
     accept = "application/json"
     predictions = [("Adelie", 0.1)]
     ret = output_fn(predictions, accept)
-    assert ret[0] == {"prediction": "Adelie", "confidence": 0.1}
+    assert ret[0] == {"0": "Adelie", "1": 0.1}
     assert ret[1] == accept

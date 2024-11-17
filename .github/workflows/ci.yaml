@@ -1,0 +1,32 @@
+name: CI
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m venv .sagemaker
+        source .sagemaker/bin/activate
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Set environment variables
+      run: |
+        echo "CLEANED_DATA_PATH=data/penguins_cleaned.csv" >> $GITHUB_ENV
+
+    - name: Run tests
+      run: |
+        source .sagemaker/bin/activate
+        pytest --disable-warnings -q -s

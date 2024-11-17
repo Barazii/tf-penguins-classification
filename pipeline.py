@@ -195,7 +195,7 @@ if __name__ == "__main__":
     eval_step = ProcessingStep(
         name="evaluation-step",
         step_args=eval_processor.run(
-            dependencies=["requirements.txt"],
+            dependencies=["./code/requirements.txt"],
             code=f"./code/evaluation.py",
             arguments=[
                 "--pc_base_directory",
