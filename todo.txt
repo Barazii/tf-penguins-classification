@@ -1,3 +1,0 @@
-automate testing in github on push commit. 
-continous learning by making aws schedule with target execute sagemaker pipeline.
-see more AWS services.
