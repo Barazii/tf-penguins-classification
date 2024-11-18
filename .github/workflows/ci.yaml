@@ -25,6 +25,7 @@ jobs:
     - name: Set environment variables
       run: |
         echo "CLEANED_DATA_PATH=data/penguins_cleaned.csv" >> $GITHUB_ENV
+        # These are mock env variables, their values aren't important.
         echo "ENDPOINT=xyz" >> $GITHUB_ENV
         echo "DATA_CAPTURE_DESTINATION=xyz" >> $GITHUB_ENV
         echo "ROLE=xyz" >> $GITHUB_ENV
