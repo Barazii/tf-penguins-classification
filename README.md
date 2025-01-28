@@ -5,7 +5,7 @@ AWS sagemaker is used for orchestrating the machine learning pipeline.\
 ## Run the pipeline
 The pipeline could run locally, but isn't recommended as sagemaker is primarily made to run machine learning systems on AWS cloud. \
 Assuming a virtual env is created and equipped with all the dependencies in requirements.txt, execute:\
-```bash
+```
 bash run_pipeline.sh
 ```
 Everything in the pipeline will run from the main program file including the 2 AWS lambda functions used for the model deployment and starting the monitoring schedules.\ 
